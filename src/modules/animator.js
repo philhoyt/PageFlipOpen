@@ -180,11 +180,13 @@ export class Animator {
       this._rightMesh.position.set(halfW, 0, 0);
       this._bookGroup.add(this._rightMesh);
 
-      // Spine-curve shadow overlays matching dflip's CSS gradient approach.
-      // Left page: spine on right edge — dark at right, transparent at left.
-      // Right page: spine on left edge — dark at left, transparent at right.
-      // Gradient profile mirrors dflip's:
-      //   rgba(0,0,0,0.25) at spine → rgba(0,0,0,0) at 70% of page width.
+      // ── Asymmetric spine shadow overlays ─────────────────────────────────
+      // The left page bows up toward the spine in a real book, creating a
+      // pronounced shadow as it curves down to meet the binding.
+      // The right page lies relatively flat — little to no shadow there.
+
+      // Left page — strong crease bow at spine (right edge of this page).
+      // Gradient reversed to match UV direction: dark at u=0, transparent at u=1.
       const leftTex = this._makeGradientTex([
         [0,    'rgba(0,0,0,0)'],
         [0.40, 'rgba(0,0,0,0)'],
@@ -199,6 +201,7 @@ export class Animator {
       this._leftOverlay.position.set(-halfW, 0, 0.2);
       this._bookGroup.add(this._leftOverlay);
 
+      // Right page (u=0 = spine, u=1 = outer right edge) — nearly flat
       const rightTex = this._makeGradientTex([
         [0,    'rgba(0,0,0,0.15)'],
         [0.10, 'rgba(0,0,0,0.10)'],
@@ -213,13 +216,13 @@ export class Animator {
       this._rightOverlay.position.set(halfW, 0, 0.2);
       this._bookGroup.add(this._rightOverlay);
 
-      // Narrow spine crease — tight gradient centred on the binding seam.
+      // Spine crease — asymmetric: shadow biased to left side where the left
+      // page bows up to meet the binding; right side nearly clean.
       const spineTex = this._makeGradientTex([
-        [0,    'rgba(0,0,0,0)'],
-        [0.20, 'rgba(0,0,0,0.08)'],
-        [0.50, 'rgba(0,0,0,0.18)'],
-        [0.80, 'rgba(0,0,0,0.08)'],
-        [1,    'rgba(0,0,0,0)'],
+        [0,    'rgba(0,0,0,0.00)'],
+        [0.50, 'rgba(0,0,0,0.08)'],
+        [0.51, 'rgba(0,0,0,0.0)'],
+        [1.0,  'rgba(0,0,0,0)'],
       ]);
       this._spineMesh = new THREE.Mesh(
         new THREE.PlaneGeometry(pageW * 0.04, pageH),
