@@ -83,6 +83,8 @@ export class PageFlipOpen {
       this.layout = newLayout;
       if (this._animator && this._ready) {
         const dims = this._layout.getPageDimensions();
+        const dpr = window.devicePixelRatio || 1;
+        this._loader.setRenderScale(dims.scale * dpr * 1.5);
         const leftPage = this._layout.getSpreadLeftPage(this.currentPage);
         this._animator.buildScene(dims, newLayout, leftPage, this.totalPages);
       }
@@ -145,6 +147,12 @@ export class PageFlipOpen {
 
       // Build the Three.js scene
       const dims = this._layout.getPageDimensions();
+
+      // Render at device-pixel resolution: dims.scale (display px per PDF pt) × dpr.
+      // The ×1.5 oversample keeps sub-pixel text sharp without exploding memory.
+      const dpr = window.devicePixelRatio || 1;
+      this._loader.setRenderScale(dims.scale * dpr * 1.5);
+
       this._animator.buildScene(dims, this.layout, leftPage, totalPages);
 
       // Viewport (wrap animator canvas)
