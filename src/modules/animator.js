@@ -2,25 +2,31 @@
  * animator.js — 3D Flip Animation
  * Owns the Three.js scene, camera, renderer, and GSAP flip queue.
  *
- * Page turn technique: spine-pivot scale animation.
+ * Page turn technique: cylindrical vertex deformation.
  *
- * Two half-page meshes share the same spine-pivot geometry
- * (PlaneGeometry translated so its LEFT edge sits at x=0, the spine).
- * Animating mesh.scale.x is equivalent to pivoting the page around the spine:
+ * Two high-segment PlaneGeometries (60 × 10) are deformed each frame so that
+ * every vertex follows a cylindrical arc around the spine (x = 0):
+ *
+ *   u     = |origX| / pageW          (0 = spine, 1 = outer edge)
+ *   angle = (π/2) × progress × u
+ *   newX  = cos(angle) × origX
+ *   newZ  = sin(angle) × |origX| × LIFT_FACTOR
  *
  *   Forward flip (right page turns left):
- *     shrinkMesh: scale.x  1 → 0   (right page collapses toward spine)
- *     growMesh:   scale.x  0 → -1  (back of page expands leftward)
+ *     shrinkMesh (_flipRightMesh): progress 0 → 1  (flat right → vertical)
+ *     growMesh   (_flipLeftMesh):  progress 1 → 0  (vertical → flat left)
  *
- *   Backward flip (left page turns right):
- *     shrinkMesh: scale.x -1 → 0   (left page collapses toward spine)
- *     growMesh:   scale.x  0 → 1   (back of page expands rightward)
+ *   Backward flip (left page turns right): meshes swapped, same math.
  *
- * Both meshes use THREE.DoubleSide so they stay visible regardless of scale sign.
+ * PerspectiveCamera is calibrated so the spread at z=0 maps 1:1 to CSS pixels.
+ * Objects closer to the camera (the flipping page's arc) appear slightly larger,
+ * providing natural foreshortening — the primary 3D depth cue.
  */
 
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+
+const LIFT_FACTOR = 0.45;
 
 export class Animator {
   constructor(container, options = {}) {
@@ -39,22 +45,28 @@ export class Animator {
     // Static page meshes
     this._leftMesh = null;
     this._rightMesh = null;
-    this._spineMesh = null;
 
-    // Flip meshes (right/left refer to which side of the spine they occupy)
-    this._flipRightMesh = null;  // spans [0, pageW]  — pivot at spine, extends right
-    this._flipLeftMesh = null;   // spans [-pageW, 0] — pivot at spine, extends left
+    // Gradient overlays (book-spine curve shadow on static pages)
+    this._leftOverlay  = null;
+    this._rightOverlay = null;
 
-    // Shadow
-    this._shadowMesh = null;
+    // Spine shadow + flip cast shadow
+    this._spineMesh     = null;
+    this._shadowMesh    = null;
+    this._shadowFwdTex  = null; // gradient for forward-flip cast shadow
+    this._shadowBwdTex  = null; // gradient for backward-flip cast shadow
+
+    // Flip meshes
+    this._flipRightMesh = null;
+    this._flipLeftMesh  = null;
 
     // GSAP queue
     this._flipQueue = [];
     this._currentTimeline = null;
     this._isAnimating = false;
 
-    this._onPageChangeCb = null;
-    this._onAnimationEndCb = null;
+    this._onPageChangeCb    = null;
+    this._onAnimationEndCb  = null;
     this._loader = null;
 
     this._init();
@@ -75,8 +87,8 @@ export class Animator {
   }
 
   setLoader(loader) { this._loader = loader; }
-  onPageChange(cb) { this._onPageChangeCb = cb; }
-  onAnimationEnd(cb) { this._onAnimationEndCb = cb; }
+  onPageChange(cb)  { this._onPageChangeCb = cb; }
+  onAnimationEnd(cb){ this._onAnimationEndCb = cb; }
 
   buildScene(pageDims, layout, currentLeftPage, totalPages) {
     this._pageDims = pageDims;
@@ -89,15 +101,14 @@ export class Animator {
 
     this._renderer.setSize(containerW, containerH);
 
-    // Camera frustum = renderer canvas exactly (1 world unit = 1 pixel).
-    // This guarantees no aspect-ratio distortion regardless of spread size.
-    // Page geometry dimensions come from layout.js already in pixel units.
-    this._camera = new THREE.OrthographicCamera(
-      -containerW / 2,  containerW / 2,
-       containerH / 2, -containerH / 2,
-      0.1, 1000
-    );
-    this._camera.position.set(0, 0, 100);
+    // PerspectiveCamera calibrated so the scene at z=0 maps exactly to the
+    // container in CSS pixels (1 world unit = 1 pixel at z=0).
+    // cameraZ = containerH × 1.0 gives ~53° vFOV — enough perspective that
+    // the flipping page's Z arc reads as dramatic depth.
+    const cameraZ = containerH * 1.0;
+    const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
+    this._camera = new THREE.PerspectiveCamera(fovY, containerW / containerH, 0.1, cameraZ * 4);
+    this._camera.position.set(0, 0, cameraZ);
     this._camera.lookAt(0, 0, 0);
 
     this._clearMeshes();
@@ -106,26 +117,37 @@ export class Animator {
   }
 
   _clearMeshes() {
+    // Dispose shadow textures explicitly (they're shared across mesh swaps)
+    if (this._shadowFwdTex) { this._shadowFwdTex.dispose(); this._shadowFwdTex = null; }
+    if (this._shadowBwdTex) { this._shadowBwdTex.dispose(); this._shadowBwdTex = null; }
+    // Null out shadow mesh map so the loop below doesn't double-dispose
+    if (this._shadowMesh) this._shadowMesh.material.map = null;
+
     const meshes = [
-      this._leftMesh, this._rightMesh, this._spineMesh,
-      this._flipRightMesh, this._flipLeftMesh, this._shadowMesh,
+      this._leftMesh, this._rightMesh,
+      this._leftOverlay, this._rightOverlay,
+      this._spineMesh, this._shadowMesh,
+      this._flipRightMesh, this._flipLeftMesh,
     ];
     for (const mesh of meshes) {
       if (!mesh) continue;
       this._scene.remove(mesh);
       mesh.geometry.dispose();
       if (Array.isArray(mesh.material)) {
-        mesh.material.forEach(m => m.dispose());
+        mesh.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
       } else {
+        if (mesh.material.map) mesh.material.map.dispose();
         mesh.material.dispose();
       }
     }
-    this._leftMesh = null;
-    this._rightMesh = null;
-    this._spineMesh = null;
+    this._leftMesh      = null;
+    this._rightMesh     = null;
+    this._leftOverlay   = null;
+    this._rightOverlay  = null;
+    this._spineMesh     = null;
+    this._shadowMesh    = null;
     this._flipRightMesh = null;
-    this._flipLeftMesh = null;
-    this._shadowMesh = null;
+    this._flipLeftMesh  = null;
   }
 
   _buildPageMeshes(pageW, pageH, layout) {
@@ -133,7 +155,6 @@ export class Animator {
     const halfW = pageW / 2;
 
     // ── Static page meshes ────────────────────────────────────────────────────
-    // MeshBasicMaterial renders textures at full brightness (no lighting math).
 
     this._leftMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(pageW, pageH),
@@ -150,65 +171,176 @@ export class Animator {
       this._rightMesh.position.set(halfW, 0, 0);
       this._scene.add(this._rightMesh);
 
-      // Thin spine shadow strip
+      // Spine-curve shadow overlays matching dflip's CSS gradient approach.
+      // Left page: spine on right edge — dark at right, transparent at left.
+      // Right page: spine on left edge — dark at left, transparent at right.
+      // Gradient profile mirrors dflip's:
+      //   rgba(0,0,0,0.25) at spine → rgba(0,0,0,0) at 70% of page width.
+      const leftTex = this._makeGradientTex([
+        [0,    'rgba(0,0,0,0)'],
+        [0.40, 'rgba(0,0,0,0)'],
+        [0.75, 'rgba(0,0,0,0.05)'],
+        [0.90, 'rgba(0,0,0,0.10)'],
+        [1.0,  'rgba(0,0,0,0.15)'],
+      ]);
+      this._leftOverlay = new THREE.Mesh(
+        new THREE.PlaneGeometry(pageW, pageH),
+        new THREE.MeshBasicMaterial({ map: leftTex, transparent: true, depthWrite: false })
+      );
+      this._leftOverlay.position.set(-halfW, 0, 0.2);
+      this._scene.add(this._leftOverlay);
+
+      const rightTex = this._makeGradientTex([
+        [0,    'rgba(0,0,0,0.15)'],
+        [0.10, 'rgba(0,0,0,0.10)'],
+        [0.25, 'rgba(0,0,0,0.05)'],
+        [0.60, 'rgba(0,0,0,0)'],
+        [1.0,  'rgba(0,0,0,0)'],
+      ]);
+      this._rightOverlay = new THREE.Mesh(
+        new THREE.PlaneGeometry(pageW, pageH),
+        new THREE.MeshBasicMaterial({ map: rightTex, transparent: true, depthWrite: false })
+      );
+      this._rightOverlay.position.set(halfW, 0, 0.2);
+      this._scene.add(this._rightOverlay);
+
+      // Narrow spine crease — tight gradient centred on the binding seam.
+      const spineTex = this._makeGradientTex([
+        [0,    'rgba(0,0,0,0)'],
+        [0.20, 'rgba(0,0,0,0.08)'],
+        [0.50, 'rgba(0,0,0,0.18)'],
+        [0.80, 'rgba(0,0,0,0.08)'],
+        [1,    'rgba(0,0,0,0)'],
+      ]);
       this._spineMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(6, pageH),
-        new THREE.MeshBasicMaterial({
-          color: 0x000000, transparent: true, opacity: 0.2, depthWrite: false,
-        })
+        new THREE.PlaneGeometry(pageW * 0.04, pageH),
+        new THREE.MeshBasicMaterial({ map: spineTex, transparent: true, depthWrite: false })
       );
       this._spineMesh.position.set(0, 0, 0.5);
       this._scene.add(this._spineMesh);
     }
 
     // ── Flip meshes ───────────────────────────────────────────────────────────
-    // Two distinct geometries — one for each side of the spine — so scale.x
-    // is always positive and textures are never mirrored.
-    //
-    //  _flipRightMesh: spans [0, pageW]  — right side of spine
-    //    scale.x: 1→0  forward shrink (right page collapsing)
-    //    scale.x: 0→1  backward grow  (back face expanding rightward)
-    //
-    //  _flipLeftMesh:  spans [-pageW, 0] — left side of spine
-    //    scale.x: 0→1  forward grow   (back face expanding leftward)
-    //    scale.x: 1→0  backward shrink (left page collapsing)
 
-    const makeRightGeo = () => {
-      const g = new THREE.PlaneGeometry(pageW, pageH);
-      g.translate(pageW / 2, 0, 0);   // spans [0, pageW]
-      return g;
-    };
-    const makeLeftGeo = () => {
-      const g = new THREE.PlaneGeometry(pageW, pageH);
-      g.translate(-pageW / 2, 0, 0);  // spans [-pageW, 0]
+    const makeFlipGeo = (translateX) => {
+      const g = new THREE.PlaneGeometry(pageW, pageH, 60, 10);
+      g.translate(translateX, 0, 0);
+      g.userData.originalPositions = g.attributes.position.array.slice();
+      const n = g.attributes.position.count;
+      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
       return g;
     };
 
     this._flipRightMesh = new THREE.Mesh(
-      makeRightGeo(),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide })
+      makeFlipGeo(pageW / 2),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: THREE.FrontSide })
     );
     this._flipRightMesh.position.set(0, 0, 2);
     this._flipRightMesh.visible = false;
     this._scene.add(this._flipRightMesh);
 
     this._flipLeftMesh = new THREE.Mesh(
-      makeLeftGeo(),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.FrontSide })
+      makeFlipGeo(-pageW / 2),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: THREE.FrontSide })
     );
     this._flipLeftMesh.position.set(0, 0, 2);
     this._flipLeftMesh.visible = false;
     this._scene.add(this._flipLeftMesh);
 
-    // Shadow strip that follows the fold crease
+    // Two cast-shadow textures — one per flip direction — so the gradient always
+    // reads dark near the spine and transparent toward the outer page edge.
+    // Forward flip: page turns from right to left, shadow falls on left page
+    //   → gradient transparent at left → dark at right (near spine).
+    this._shadowFwdTex = this._makeGradientTex([
+      [0,    'rgba(0,0,0,0)'],
+      [0.70, 'rgba(0,0,0,0)'],
+      [0.88, 'rgba(0,0,0,0.22)'],
+      [1.0,  'rgba(0,0,0,0.65)'],
+    ]);
+    // Backward flip: page turns from left to right, shadow falls on right page
+    //   → gradient dark at left (near spine) → transparent at right.
+    this._shadowBwdTex = this._makeGradientTex([
+      [0,    'rgba(0,0,0,0.65)'],
+      [0.12, 'rgba(0,0,0,0.22)'],
+      [0.30, 'rgba(0,0,0,0)'],
+      [1.0,  'rgba(0,0,0,0)'],
+    ]);
     this._shadowMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(pageW * 0.35, pageH),
+      new THREE.PlaneGeometry(pageW, pageH),
       new THREE.MeshBasicMaterial({
-        color: 0x000000, transparent: true, opacity: 0, depthWrite: false,
+        map: this._shadowFwdTex, transparent: true, opacity: 0, depthWrite: false,
       })
     );
-    this._shadowMesh.position.set(0, 0, 1.5);
+    this._shadowMesh.position.set(0, 0, 1); // below flip meshes (z=2) — cast shadow on the receiving page only
     this._scene.add(this._shadowMesh);
+  }
+
+  // ── Gradient texture helper ────────────────────────────────────────────────
+
+  /**
+   * Creates a CanvasTexture with a horizontal linear gradient.
+   * @param {Array<[number, string]>} stops  — [[position, cssColor], …]
+   */
+  _makeGradientTex(stops) {
+    const canvas = document.createElement('canvas');
+    canvas.width  = 256;
+    canvas.height = 4;
+    const ctx = canvas.getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 256, 0);
+    for (const [pos, color] of stops) grad.addColorStop(pos, color);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 256, 4);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  // ── Cylindrical vertex deformation ────────────────────────────────────────
+
+  /**
+   * Bends a flip mesh into a cylindrical arc around the spine (x=0).
+   * progress=0 → flat, progress=1 → outer edge pointing toward camera (z=max).
+   * Recomputes normals and applies fake shading via vertex colours so the
+   * curved surface reads as 3D.
+   */
+  _deformPage(mesh, progress, pageW) {
+    const geo  = mesh.geometry;
+    const orig = geo.userData.originalPositions;
+    const pos  = geo.attributes.position;
+
+    for (let i = 0; i < pos.count; i++) {
+      const i3    = i * 3;
+      const origX = orig[i3];
+      const origY = orig[i3 + 1];
+      const u     = Math.abs(origX) / pageW;
+      const a     = (Math.PI / 2) * progress * u;
+
+      pos.setXYZ(i, Math.cos(a) * origX, origY, Math.sin(a) * Math.abs(origX) * LIFT_FACTOR);
+    }
+    pos.needsUpdate = true;
+
+    geo.computeVertexNormals();
+    const nrm    = geo.attributes.normal;
+    const colors = geo.attributes.color;
+    for (let i = 0; i < pos.count; i++) {
+      const i3 = i * 3;
+      const u  = Math.abs(orig[i3]) / pageW; // 0 at spine, 1 at outer edge
+      const c  = this._shade(nrm.getX(i), nrm.getY(i), nrm.getZ(i));
+      // Darken near the spine to match the static page overlay profile:
+      // 0.15 at spine edge, fading to zero by 20% into the page.
+      const spineDark = Math.max(0, 0.15 * (1 - u / 0.20));
+      const final = Math.max(0, c - spineDark);
+      colors.setXYZ(i, final, final, final);
+    }
+    colors.needsUpdate = true;
+  }
+
+  /** Ambient + diffuse shading from a fixed upper-right light direction. */
+  _shade(nx, ny, nz) {
+    const LX = 0.3, LY = 0.5, LZ = 1.0;
+    const len = Math.sqrt(LX * LX + LY * LY + LZ * LZ);
+    const dot = (nx * LX + ny * LY + nz * LZ) / len;
+    return 0.68 + 0.32 * Math.max(0, dot);
   }
 
   // ── Texture management ─────────────────────────────────────────────────────
@@ -268,25 +400,19 @@ export class Animator {
   }
 
   _executeFlip({ targetLeftPage, direction, duration }) {
-    const isDouble = this._layout === 'double';
+    const isDouble  = this._layout === 'double';
     const isForward = direction === 'forward';
-    const pageW = this._pageDims.pageWidth;
+    const pageW     = this._pageDims.pageWidth;
 
-    // Max Z lift at the midpoint of the animation (simulates the page curling off the surface)
-    const LIFT = pageW * 0.15;
-
-    // forward: right page turns left  → shrink = _flipRightMesh, grow = _flipLeftMesh
-    // backward: left page turns right → shrink = _flipLeftMesh,  grow = _flipRightMesh
     const shrinkMesh = isForward ? this._flipRightMesh : this._flipLeftMesh;
     const growMesh   = isForward ? this._flipLeftMesh  : this._flipRightMesh;
 
-    // Page that's physically turning
+    // Textures
     const turningPage = isForward
       ? (isDouble ? this._currentLeftPage + 1 : this._currentLeftPage)
       : this._currentLeftPage;
     this._applyTexture(shrinkMesh, turningPage);
 
-    // Back of the turning page = incoming page on the side it's landing
     const backPage = isForward
       ? targetLeftPage
       : Math.min(targetLeftPage + 1, this._totalPages);
@@ -294,12 +420,8 @@ export class Animator {
     growMesh.material.color.set(0xffffff);
     this._applyTexture(growMesh, backPage);
 
-    // Update the static mesh on the side the shrink mesh covers immediately —
-    // it's invisible behind the shrink mesh throughout phase 1.
-    // The other side stays on current content; its texture is transferred
-    // synchronously from the grow mesh in onComplete (see below).
+    // Update the static mesh that's hidden behind the shrink mesh immediately
     if (isForward) {
-      // Right static is covered by shrink mesh — update it now
       if (isDouble && this._rightMesh) {
         const rp = targetLeftPage + 1;
         if (rp <= this._totalPages) {
@@ -311,19 +433,29 @@ export class Animator {
         }
       }
     } else {
-      // Left static is covered by shrink mesh — update it now
       this._applyTexture(this._leftMesh, targetLeftPage);
     }
 
-    // Initial state
-    shrinkMesh.scale.x = 1;
-    shrinkMesh.position.z = 2;
-    shrinkMesh.visible = true;
-    growMesh.scale.x = 0;
-    growMesh.position.z = 2;
-    growMesh.visible = false;
+    // Position the cast shadow on the page the flip will land on.
+    // Forward: shadow lands on left page; backward: on right page.
+    // Each direction has its own gradient texture so the shadow always reads
+    // dark near the spine and transparent toward the outer page edge.
+    if (this._shadowMesh) {
+      this._shadowMesh.position.x = isForward ? -halfW(pageW) : halfW(pageW);
+      this._shadowMesh.material.map = isForward ? this._shadowFwdTex : this._shadowBwdTex;
+      this._shadowMesh.material.opacity = 0;
+      this._shadowMesh.material.needsUpdate = true;
+    }
 
-    if (this._shadowMesh) this._shadowMesh.material.opacity = 0;
+    // Reset flip meshes to flat
+    this._deformPage(shrinkMesh, 0, pageW);
+    this._deformPage(growMesh,   0, pageW);
+    shrinkMesh.scale.x   = 1;
+    shrinkMesh.position.z = 2;
+    shrinkMesh.visible    = true;
+    growMesh.scale.x      = 1;
+    growMesh.position.z   = 2;
+    growMesh.visible      = false;
 
     const prog = { t: 0 };
 
@@ -332,9 +464,7 @@ export class Animator {
         this._currentLeftPage = targetLeftPage;
         if (this._shadowMesh) this._shadowMesh.material.opacity = 0;
 
-        // At this point the grow mesh is at scale.x = 1, fully covering its side.
-        // Synchronously copy its texture to the underlying static mesh before
-        // hiding it — the swap is invisible and requires no async texture load.
+        // Copy grow mesh texture to the underlying static mesh synchronously
         if (isForward && this._leftMesh) {
           this._leftMesh.material.map = growMesh.material.map;
           this._leftMesh.material.color.set(0xffffff);
@@ -346,9 +476,8 @@ export class Animator {
         }
 
         shrinkMesh.visible = false;
-        growMesh.visible = false;
+        growMesh.visible   = false;
 
-        // Re-apply all textures to ensure full correctness (handles edge cases)
         this._updateTextures();
         if (this._onPageChangeCb) this._onPageChangeCb(targetLeftPage);
         if (this._loader) this._loader.prefetch(targetLeftPage, this._totalPages);
@@ -362,32 +491,22 @@ export class Animator {
       ease: 'power2.inOut',
       onUpdate: () => {
         const t = prog.t;
-        const arcZ = 2 + Math.sin(t * Math.PI) * LIFT;
 
         if (t <= 0.5) {
-          // Phase 1: source page collapses toward spine
-          shrinkMesh.scale.x = 1 - t * 2;
-          shrinkMesh.position.z = arcZ;
+          // Phase 1: source page bends from flat → vertical
+          this._deformPage(shrinkMesh, t / 0.5, pageW);
           shrinkMesh.visible = true;
-          growMesh.visible = false;
+          growMesh.visible   = false;
         } else {
-          // Phase 2: back face expands from spine to destination
-          growMesh.scale.x = (t - 0.5) * 2;
-          growMesh.position.z = arcZ;
+          // Phase 2: back face bends from vertical → flat on opposite side
+          this._deformPage(growMesh, 1 - (t - 0.5) / 0.5, pageW);
           shrinkMesh.visible = false;
-          growMesh.visible = true;
+          growMesh.visible   = true;
         }
 
-        // Shadow follows the fold crease, peaks at t=0.5
+        // Cast shadow on the landing page, peaks at mid-flip
         if (this._shadowMesh) {
-          const creaseX = isForward
-            ? pageW * (1 - t)    // right edge → spine
-            : -pageW * (1 - t);  // left edge  → spine
-          this._shadowMesh.position.x = isForward
-            ? creaseX - pageW * 0.175
-            : creaseX + pageW * 0.175;
-          this._shadowMesh.position.z = 1.5;
-          this._shadowMesh.material.opacity = Math.sin(t * Math.PI) * 0.3;
+          this._shadowMesh.material.opacity = Math.sin(t * Math.PI) * 0.55;
         }
       },
     });
@@ -402,8 +521,8 @@ export class Animator {
       this._currentTimeline = null;
     }
     if (this._flipRightMesh) this._flipRightMesh.visible = false;
-    if (this._flipLeftMesh) this._flipLeftMesh.visible = false;
-    if (this._shadowMesh) this._shadowMesh.material.opacity = 0;
+    if (this._flipLeftMesh)  this._flipLeftMesh.visible  = false;
+    if (this._shadowMesh)    this._shadowMesh.material.opacity = 0;
     this._isAnimating = false;
     this._updateTextures();
   }
@@ -433,3 +552,5 @@ export class Animator {
     }
   }
 }
+
+function halfW(pageW) { return pageW / 2; }

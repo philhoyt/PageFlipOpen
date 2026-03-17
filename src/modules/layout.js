@@ -5,6 +5,7 @@
  */
 
 const RESIZE_DEBOUNCE_MS = 100;
+const BOOK_PADDING = 0.88; // book fills 88% of container — leaves breathing room
 
 export class Layout {
   constructor(container) {
@@ -77,14 +78,15 @@ export class Layout {
     const availableH = containerH - toolbarHeight;
 
     let spreadCols = this._currentLayout === 'double' ? 2 : 1;
-    const availableW = containerW;
+    const availableW = containerW * BOOK_PADDING;
+    const availableH_padded = availableH * BOOK_PADDING;
 
     // Fit the spread into the available area, preserving PDF aspect ratio
     const spreadW = pdfW * spreadCols;
     const spreadH = pdfH;
 
     const scaleW = availableW / spreadW;
-    const scaleH = availableH / spreadH;
+    const scaleH = availableH_padded / spreadH;
     const scale = Math.min(scaleW, scaleH);
 
     return {

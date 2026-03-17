@@ -113,14 +113,17 @@ export class Toolbar {
     });
 
     // Fade behavior
-    this._container.addEventListener('mousemove', this._boundInteractionHandler);
-    this._container.addEventListener('touchstart', this._boundInteractionHandler);
-    el.addEventListener('mouseenter', () => {
-      clearTimeout(this._fadeTimer);
+    if (this._options.toolbarAlwaysVisible) {
       this._show();
-    });
-
-    this._resetFadeTimer();
+    } else {
+      this._container.addEventListener('mousemove', this._boundInteractionHandler);
+      this._container.addEventListener('touchstart', this._boundInteractionHandler);
+      el.addEventListener('mouseenter', () => {
+        clearTimeout(this._fadeTimer);
+        this._show();
+      });
+      this._resetFadeTimer();
+    }
   }
 
   _emit(event, data) {

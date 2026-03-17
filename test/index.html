@@ -10,15 +10,15 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #111;
-      color: #eee;
+      background: #c8bfb0;
+      color: #222;
       min-height: 100vh;
     }
 
     .page-header {
-      background: #1a1a2e;
+      background: #b8ae9e;
       padding: 16px 24px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
+      border-bottom: 1px solid rgba(0,0,0,0.12);
       display: flex;
       align-items: center;
       gap: 16px;
@@ -28,12 +28,13 @@
     .page-header h1 {
       font-size: 18px;
       font-weight: 600;
-      color: #7eb8ff;
+      color: #2a3a6a;
     }
 
     .page-header p {
       font-size: 13px;
       opacity: 0.6;
+      color: #222;
     }
 
     .controls {
@@ -42,8 +43,8 @@
       align-items: center;
       flex-wrap: wrap;
       padding: 12px 24px;
-      background: #161622;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: #afa598;
+      border-bottom: 1px solid rgba(0,0,0,0.10);
     }
 
     .control-group {
@@ -54,23 +55,23 @@
 
     .control-group label {
       font-size: 12px;
-      opacity: 0.7;
+      opacity: 0.75;
     }
 
     .controls input[type="text"],
     .controls input[type="number"],
     .controls select {
       padding: 4px 8px;
-      background: #2a2a3e;
-      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(0,0,0,0.2);
       border-radius: 4px;
-      color: #eee;
+      color: #222;
       font-size: 12px;
     }
 
     .controls button {
       padding: 5px 12px;
-      background: #3a5acc;
+      background: #5a6aaa;
       border: none;
       border-radius: 4px;
       color: #fff;
@@ -79,7 +80,7 @@
     }
 
     .controls button:hover {
-      background: #4a6add;
+      background: #6a7abb;
     }
 
     .viewers {
@@ -101,7 +102,8 @@
     .viewer-label {
       font-size: 12px;
       font-weight: 600;
-      opacity: 0.7;
+      opacity: 0.65;
+      color: #222;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       display: flex;
@@ -297,6 +299,7 @@
           flipDuration,
           autoLayout: layoutMode === 'auto',
           singlePageMode: layoutMode === 'single',
+          toolbarAlwaysVisible: true,
           onReady() {
             showStatus(`Loaded: ${instance.totalPages} pages`);
             updateDebug(instance);
