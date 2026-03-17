@@ -63,7 +63,7 @@
   display: block;
   max-width: 100%;
   max-height: 100%;
-  filter: drop-shadow(0 8px 28px rgba(0,0,0,0.2));
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
 }
 
 /* ============================================================
@@ -72,9 +72,10 @@
 
 .pfo-toolbar {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
   height: var(--pfo-toolbar-height);
   display: flex;
   align-items: center;
@@ -83,6 +84,7 @@
   padding: 0 12px;
   background-color: var(--pfo-toolbar-bg);
   color: var(--pfo-toolbar-color);
+  border-radius: 8px;
   z-index: 100;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);

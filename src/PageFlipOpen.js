@@ -25,6 +25,8 @@ const DEFAULTS = {
   enableSound: false,
   soundUrl: null,
   enableFullscreen: true,
+  enableDownload: false,
+  downloadFilename: null,
   enableKeyboard: true,
   enableTouch: true,
   toolbar: true,
@@ -108,6 +110,7 @@ export class PageFlipOpen {
     this._toolbar.on('zoomIn', () => this.zoomIn());
     this._toolbar.on('zoomOut', () => this.zoomOut());
     this._toolbar.on('toggleFullscreen', () => this.toggleFullscreen());
+    this._toolbar.on('download', () => this._downloadPDF());
     this._toolbar.on('flipTo', (page) => this.flipTo(page));
   }
 
@@ -268,6 +271,14 @@ export class PageFlipOpen {
 
   toggleFullscreen() {
     if (this._viewport) this._viewport.toggleFullscreen();
+  }
+
+  _downloadPDF() {
+    if (!this._options.source) return;
+    const a = document.createElement('a');
+    a.href = this._options.source;
+    a.download = this._options.downloadFilename || this._options.source.split('/').pop() || 'document.pdf';
+    a.click();
   }
 
   get isAnimating() {

@@ -40,12 +40,7 @@ export class Layout {
     // Landscape PDF → single page mode
     if (pageW > pageH) return 'single';
 
-    const containerW = this._container.clientWidth;
-
-    // Container wide enough for two pages → double
-    if (containerW >= pageW * 2) return 'double';
-
-    return 'single';
+    return 'double';
   }
 
   _onResize() {
