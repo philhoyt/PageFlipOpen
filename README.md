@@ -1,38 +1,31 @@
 # PageFlipOpen
 
-A self-contained JavaScript library that renders a PDF as an interactive 3D flipbook in the browser. No jQuery, no Flash, no server-side processing.
+A JavaScript library that renders a PDF as an interactive 3D flipbook in the browser.
 
 ## Features
 
-- 3D page-turn animation with cylindrical vertex deformation
+- 3D page-turn animation
 - PDF rendering via PDF.js
 - Double-page spread layout
 - Pinch-to-zoom and pan (touch and mouse)
 - Keyboard navigation
 - Fullscreen support
-- Optional PDF download button
-- Floating toolbar with fade behaviour
-- Zero runtime dependencies beyond Three.js, GSAP, and PDF.js
+- Toolbar
 
 ## Installation
 
-Download the latest release and include the files directly:
-
-```html
-<link rel="stylesheet" href="pageflipopen.css" />
-<script src="pageflipopen.iife.min.js"></script>
-```
+Download the latest release and copy the `dist/` folder and `pageflipopen.css` into your project.
 
 ## Quick Start
 
 ```html
 <link rel="stylesheet" href="pageflipopen.css" />
-<script src="pageflipopen.iife.min.js"></script>
+<script src="dist/pageflipopen.min.js"></script>
 
 <div id="flipbook" style="width: 100%; height: 600px;"></div>
 
 <script>
-  PageFlipOpen.setPdfWorkerSrc('/pdf.worker.mjs');
+  PageFlipOpen.setPdfWorkerSrc('/dist/pdf.worker.mjs');
 
   new PageFlipOpen(document.getElementById('flipbook'), {
     source: '/path/to/document.pdf',
