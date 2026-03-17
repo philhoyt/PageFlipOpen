@@ -1,0 +1,31 @@
+{
+  "name": "pageflipopen",
+  "version": "0.1.0",
+  "description": "Self-contained JavaScript class that renders a PDF as an interactive 3D flipbook in the browser.",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/pageflipopen.iife.js",
+  "module": "dist/pageflipopen.js",
+  "exports": {
+    ".": {
+      "import": "./dist/pageflipopen.js",
+      "default": "./dist/pageflipopen.iife.js"
+    },
+    "./pageflipopen.css": "./pageflipopen.css"
+  },
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --dev",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@panzoom/panzoom": "^4.5.1",
+    "gsap": "^3.12.5",
+    "hammerjs": "^2.0.8",
+    "pdfjs-dist": "^4.4.168",
+    "three": "^0.167.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.23.0"
+  }
+}

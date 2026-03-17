@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PageFlipOpen — Test Harness</title>
+  <link rel="stylesheet" href="/pageflipopen.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #111;
+      color: #eee;
+      min-height: 100vh;
+    }
+
+    .page-header {
+      background: #1a1a2e;
+      padding: 16px 24px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .page-header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #7eb8ff;
+    }
+
+    .page-header p {
+      font-size: 13px;
+      opacity: 0.6;
+    }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      padding: 12px 24px;
+      background: #161622;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .controls input[type="text"],
+    .controls input[type="number"],
+    .controls select {
+      padding: 4px 8px;
+      background: #2a2a3e;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      color: #eee;
+      font-size: 12px;
+    }
+
+    .controls button {
+      padding: 5px 12px;
+      background: #3a5acc;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .controls button:hover {
+      background: #4a6add;
+    }
+
+    .viewers {
+      display: flex;
+      gap: 16px;
+      padding: 16px 24px;
+      height: calc(100vh - 180px);
+      min-height: 400px;
+    }
+
+    .viewer-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .viewer-label {
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.7;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .viewer-label .badge {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .badge-pfo { background: #1a5c2e; color: #4ade80; }
+    .badge-dflip { background: #1a1a5c; color: #60a5fa; }
+
+    .viewer-container {
+      flex: 1;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    #pfo-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    #debug-panel {
+      position: fixed;
+      bottom: 60px;
+      right: 24px;
+      background: rgba(0,0,0,0.85);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 11px;
+      font-family: monospace;
+      min-width: 180px;
+      z-index: 9999;
+      backdrop-filter: blur(8px);
+      display: none;
+    }
+
+    #debug-panel.visible { display: block; }
+    #debug-panel h4 { font-size: 11px; opacity: 0.5; margin-bottom: 6px; text-transform: uppercase; }
+    .debug-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
+    .debug-key { opacity: 0.6; }
+    .debug-val { color: #4ade80; font-weight: 600; }
+
+    .toggle-debug {
+      position: fixed;
+      bottom: 16px;
+      right: 24px;
+      padding: 6px 12px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 4px;
+      color: #eee;
+      font-size: 11px;
+      cursor: pointer;
+      z-index: 9999;
+    }
+
+    .status-msg {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.3);
+      color: #4ade80;
+    }
+
+    .status-msg.error {
+      background: rgba(248, 113, 113, 0.1);
+      border-color: rgba(248, 113, 113, 0.3);
+      color: #f87171;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div>
+      <h1>PageFlipOpen</h1>
+      <p>Interactive 3D PDF flipbook — test harness</p>
+    </div>
+    <div id="status-msg" class="status-msg" style="display:none"></div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>PDF URL</label>
+      <input type="text" id="pdf-url" value="https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf" style="width:340px" />
+      <button onclick="loadPDF()">Load</button>
+    </div>
+
+    <div class="control-group">
+      <label>Start page</label>
+      <input type="number" id="start-page" value="1" min="1" style="width:60px" />
+    </div>
+
+    <div class="control-group">
+      <label>Flip duration (ms)</label>
+      <input type="number" id="flip-duration" value="800" min="100" max="3000" step="100" style="width:80px" />
+    </div>
+
+    <div class="control-group">
+      <label>Layout</label>
+      <select id="layout-mode">
+        <option value="auto">Auto</option>
+        <option value="single">Force Single</option>
+        <option value="double">Force Double</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Jump to page</label>
+      <input type="number" id="jump-page" value="1" min="1" style="width:60px" />
+      <button onclick="jumpToPage()">Go</button>
+    </div>
+
+    <button onclick="toggleDebug()">Debug</button>
+  </div>
+
+  <div class="viewers">
+    <div class="viewer-col">
+      <div class="viewer-label">
+        <span class="badge badge-pfo">PFO</span>
+        PageFlipOpen
+      </div>
+      <div class="viewer-container">
+        <div id="pfo-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug panel -->
+  <div id="debug-panel">
+    <h4>Debug</h4>
+    <div class="debug-row"><span class="debug-key">Layout</span><span class="debug-val" id="dbg-layout">—</span></div>
+    <div class="debug-row"><span class="debug-key">Page</span><span class="debug-val" id="dbg-page">—</span></div>
+    <div class="debug-row"><span class="debug-key">Total</span><span class="debug-val" id="dbg-total">—</span></div>
+    <div class="debug-row"><span class="debug-key">Spread</span><span class="debug-val" id="dbg-spread">—</span></div>
+    <div class="debug-row"><span class="debug-key">Animating</span><span class="debug-val" id="dbg-animating">—</span></div>
+    <div class="debug-row"><span class="debug-key">Zoom</span><span class="debug-val" id="dbg-zoom">—</span></div>
+  </div>
+
+  <button class="toggle-debug" onclick="toggleDebug()">Toggle Debug</button>
+
+  <!-- Load PageFlipOpen ES module -->
+  <script type="module">
+    import { PageFlipOpen } from '/dist/pageflipopen.js';
+    window.PageFlipOpen = PageFlipOpen;
+
+    let instance = null;
+
+    function showStatus(msg, isError = false) {
+      const el = document.getElementById('status-msg');
+      el.textContent = msg;
+      el.className = 'status-msg' + (isError ? ' error' : '');
+      el.style.display = 'block';
+      setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+
+    function updateDebug(pfo) {
+      if (!pfo) return;
+      document.getElementById('dbg-layout').textContent = pfo.layout || '—';
+      document.getElementById('dbg-page').textContent = pfo.currentPage || '—';
+      document.getElementById('dbg-total').textContent = pfo.totalPages || '—';
+      document.getElementById('dbg-animating').textContent = pfo.isAnimating ? 'yes' : 'no';
+    }
+
+    window.loadPDF = function () {
+      if (instance) {
+        instance.destroy();
+        instance = null;
+      }
+
+      const container = document.getElementById('pfo-container');
+      container.innerHTML = '';
+
+      const url = document.getElementById('pdf-url').value.trim();
+      const startPage = parseInt(document.getElementById('start-page').value, 10) || 1;
+      const flipDuration = parseInt(document.getElementById('flip-duration').value, 10) || 800;
+      const layoutMode = document.getElementById('layout-mode').value;
+
+      try {
+        instance = new PageFlipOpen(container, {
+          source: url,
+          startPage,
+          flipDuration,
+          autoLayout: layoutMode === 'auto',
+          singlePageMode: layoutMode === 'single',
+          onReady() {
+            showStatus(`Loaded: ${instance.totalPages} pages`);
+            updateDebug(instance);
+          },
+          onPageChange(page) {
+            document.getElementById('jump-page').value = page;
+            updateDebug(instance);
+          },
+          onError(err) {
+            showStatus('Error: ' + err.message, true);
+            console.error(err);
+          },
+        });
+
+        window._pfo = instance;
+        showStatus('Loading…');
+      } catch (err) {
+        showStatus('Init error: ' + err.message, true);
+      }
+    };
+
+    window.jumpToPage = function () {
+      if (!instance) return;
+      const page = parseInt(document.getElementById('jump-page').value, 10);
+      if (!isNaN(page)) instance.flipTo(page);
+    };
+
+    window.toggleDebug = function () {
+      document.getElementById('debug-panel').classList.toggle('visible');
+    };
+
+    // Refresh debug on interval when visible
+    setInterval(() => {
+      if (document.getElementById('debug-panel').classList.contains('visible') && window._pfo) {
+        updateDebug(window._pfo);
+      }
+    }, 500);
+
+    // Auto-load on page start
+    window.addEventListener('DOMContentLoaded', () => {
+      // Defer to give modules time to load
+    });
+    loadPDF();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,280 @@
+/* PageFlipOpen — CSS
+ * All styles use CSS custom properties for theming.
+ * Override any --pfo-* variable on .pfo-flipbook to customize appearance.
+ */
+
+/* ============================================================
+   Custom Properties (Theming)
+   ============================================================ */
+
+.pfo-flipbook {
+  --pfo-bg: #1a1a1a;
+  --pfo-toolbar-bg: rgba(0, 0, 0, 0.75);
+  --pfo-toolbar-color: #ffffff;
+  --pfo-toolbar-hover: rgba(255, 255, 255, 0.15);
+  --pfo-toolbar-height: 44px;
+  --pfo-shadow-color: rgba(0, 0, 0, 0.5);
+  --pfo-page-bg: #ffffff;
+  --pfo-spine-color: rgba(0, 0, 0, 0.25);
+  --pfo-loading-color: rgba(255, 255, 255, 0.08);
+  --pfo-transition: 200ms ease;
+  --pfo-radius: 2px;
+}
+
+/* ============================================================
+   Container
+   ============================================================ */
+
+.pfo-flipbook {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  background-color: var(--pfo-bg);
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.pfo-flipbook *,
+.pfo-flipbook *::before,
+.pfo-flipbook *::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   Canvas / Panzoom wrapper
+   ============================================================ */
+
+.pfo-panzoom-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(100% - var(--pfo-toolbar-height));
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pfo-canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+/* ============================================================
+   Toolbar
+   ============================================================ */
+
+.pfo-toolbar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--pfo-toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 12px;
+  background-color: var(--pfo-toolbar-bg);
+  color: var(--pfo-toolbar-color);
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 1;
+  transition: opacity var(--pfo-transition);
+}
+
+.pfo-toolbar--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pfo-toolbar--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pfo-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.pfo-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Toolbar Buttons
+   ============================================================ */
+
+.pfo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--pfo-radius);
+  color: var(--pfo-toolbar-color);
+  cursor: pointer;
+  transition: background-color var(--pfo-transition), opacity var(--pfo-transition);
+  flex-shrink: 0;
+}
+
+.pfo-btn:hover {
+  background-color: var(--pfo-toolbar-hover);
+}
+
+.pfo-btn:active {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+.pfo-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pfo-btn:disabled:hover {
+  background-color: transparent;
+}
+
+.pfo-btn svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Page info
+   ============================================================ */
+
+.pfo-page-info {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--pfo-toolbar-color);
+}
+
+.pfo-page-input {
+  width: 42px;
+  height: 26px;
+  padding: 0 4px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--pfo-radius);
+  color: var(--pfo-toolbar-color);
+  font-size: 13px;
+  text-align: center;
+  outline: none;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.pfo-page-input::-webkit-inner-spin-button,
+.pfo-page-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.pfo-page-input:focus {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.pfo-page-sep {
+  opacity: 0.6;
+}
+
+.pfo-page-total {
+  opacity: 0.8;
+  min-width: 20px;
+  text-align: left;
+}
+
+/* ============================================================
+   Zoom level display
+   ============================================================ */
+
+.pfo-zoom-level {
+  font-size: 12px;
+  min-width: 40px;
+  text-align: center;
+  opacity: 0.85;
+  cursor: default;
+  padding: 0 2px;
+}
+
+/* ============================================================
+   Loading state
+   ============================================================ */
+
+.pfo-flipbook--loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pfo-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+/* ============================================================
+   Fullscreen overrides
+   ============================================================ */
+
+.pfo-flipbook:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.pfo-flipbook:-moz-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+.pfo-flipbook:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 480px) {
+  .pfo-toolbar {
+    gap: 2px;
+    padding: 0 6px;
+  }
+
+  .pfo-toolbar-divider {
+    margin: 0 3px;
+  }
+
+  .pfo-zoom-level {
+    display: none;
+  }
+
+  .pfo-page-info {
+    font-size: 12px;
+  }
+
+  .pfo-page-input {
+    width: 36px;
+  }
+}
