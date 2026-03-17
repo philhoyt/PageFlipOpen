@@ -73,11 +73,16 @@ export class Animator {
     this._onAnimationEndCb  = null;
     this._loader = null;
 
+    this._bookGroup = null;
+
     this._init();
   }
 
   _init() {
     this._scene = new THREE.Scene();
+
+    this._bookGroup = new THREE.Group();
+    this._scene.add(this._bookGroup);
 
     this._renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this._renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -115,6 +120,7 @@ export class Animator {
     this._camera.lookAt(0, 0, 0);
 
     this._clearMeshes();
+    this._bookGroup.position.x = this._getGroupOffsetX(currentLeftPage);
     this._buildPageMeshes(pageDims.pageWidth, pageDims.pageHeight, layout);
     this._updateTextures();
   }
@@ -134,7 +140,7 @@ export class Animator {
     ];
     for (const mesh of meshes) {
       if (!mesh) continue;
-      this._scene.remove(mesh);
+      this._bookGroup.remove(mesh);
       mesh.geometry.dispose();
       if (Array.isArray(mesh.material)) {
         mesh.material.forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
@@ -164,7 +170,7 @@ export class Animator {
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
     this._leftMesh.position.set(isDouble ? -halfW : 0, 0, 0);
-    this._scene.add(this._leftMesh);
+    this._bookGroup.add(this._leftMesh);
 
     if (isDouble) {
       this._rightMesh = new THREE.Mesh(
@@ -172,7 +178,7 @@ export class Animator {
         new THREE.MeshBasicMaterial({ color: 0xffffff })
       );
       this._rightMesh.position.set(halfW, 0, 0);
-      this._scene.add(this._rightMesh);
+      this._bookGroup.add(this._rightMesh);
 
       // Spine-curve shadow overlays matching dflip's CSS gradient approach.
       // Left page: spine on right edge — dark at right, transparent at left.
@@ -191,7 +197,7 @@ export class Animator {
         new THREE.MeshBasicMaterial({ map: leftTex, transparent: true, depthWrite: false })
       );
       this._leftOverlay.position.set(-halfW, 0, 0.2);
-      this._scene.add(this._leftOverlay);
+      this._bookGroup.add(this._leftOverlay);
 
       const rightTex = this._makeGradientTex([
         [0,    'rgba(0,0,0,0.15)'],
@@ -205,7 +211,7 @@ export class Animator {
         new THREE.MeshBasicMaterial({ map: rightTex, transparent: true, depthWrite: false })
       );
       this._rightOverlay.position.set(halfW, 0, 0.2);
-      this._scene.add(this._rightOverlay);
+      this._bookGroup.add(this._rightOverlay);
 
       // Narrow spine crease — tight gradient centred on the binding seam.
       const spineTex = this._makeGradientTex([
@@ -220,7 +226,7 @@ export class Animator {
         new THREE.MeshBasicMaterial({ map: spineTex, transparent: true, depthWrite: false })
       );
       this._spineMesh.position.set(0, 0, 0.5);
-      this._scene.add(this._spineMesh);
+      this._bookGroup.add(this._spineMesh);
     }
 
     // ── Flip meshes ───────────────────────────────────────────────────────────
@@ -240,7 +246,7 @@ export class Animator {
     );
     this._flipRightMesh.position.set(0, 0, 2);
     this._flipRightMesh.visible = false;
-    this._scene.add(this._flipRightMesh);
+    this._bookGroup.add(this._flipRightMesh);
 
     this._flipLeftMesh = new THREE.Mesh(
       makeFlipGeo(-pageW / 2),
@@ -248,7 +254,7 @@ export class Animator {
     );
     this._flipLeftMesh.position.set(0, 0, 2);
     this._flipLeftMesh.visible = false;
-    this._scene.add(this._flipLeftMesh);
+    this._bookGroup.add(this._flipLeftMesh);
 
     // Two cast-shadow textures — one per flip direction — so the gradient always
     // reads dark near the spine and transparent toward the outer page edge.
@@ -275,7 +281,7 @@ export class Animator {
       })
     );
     this._shadowMesh.position.set(0, 0, 1); // below flip meshes (z=2) — cast shadow on the receiving page only
-    this._scene.add(this._shadowMesh);
+    this._bookGroup.add(this._shadowMesh);
   }
 
   // ── Gradient texture helper ────────────────────────────────────────────────
@@ -296,6 +302,32 @@ export class Animator {
     const tex = new THREE.CanvasTexture(canvas);
     tex.needsUpdate = true;
     return tex;
+  }
+
+  // ── Cover / back-cover helpers ────────────────────────────────────────────
+
+  /** True when the book is showing page 1 alone (front cover, double mode). */
+  _isCoverSpread(leftPage) {
+    return this._layout === 'double' && leftPage === 1 && this._totalPages > 1;
+  }
+
+  /** True when the book is showing the last page alone (back cover, double mode, even total). */
+  _isBackCoverSpread(leftPage) {
+    return this._layout === 'double' && this._totalPages > 1 &&
+           leftPage === this._totalPages && this._totalPages % 2 === 0;
+  }
+
+  /**
+   * Returns the bookGroup x-offset so that a lone cover/back-cover page appears centred.
+   * Cover  → shift group left by halfW  (rightMesh at +halfW within group → x=0 on screen)
+   * BackCover → shift group right by halfW (leftMesh at -halfW within group → x=0 on screen)
+   * Normal → no offset
+   */
+  _getGroupOffsetX(leftPage) {
+    const hw = this._pageDims.pageWidth / 2;
+    if (this._isCoverSpread(leftPage))     return -hw;
+    if (this._isBackCoverSpread(leftPage)) return  hw;
+    return 0;
   }
 
   // ── Cylindrical vertex deformation ────────────────────────────────────────
@@ -349,17 +381,49 @@ export class Animator {
   async _updateTextures() {
     if (!this._loader) return;
     const lp = this._currentLeftPage;
+    const isCover     = this._isCoverSpread(lp);
+    const isBackCover = this._isBackCoverSpread(lp);
+    const isDouble    = this._layout === 'double';
 
-    if (this._leftMesh) this._applyTexture(this._leftMesh, lp);
-
-    if (this._layout === 'double' && this._rightMesh) {
-      const rp = lp + 1;
-      if (rp <= this._totalPages) {
-        this._applyTexture(this._rightMesh, rp);
-      } else {
-        this._rightMesh.material.map = null;
-        this._rightMesh.material.color.set(0xfafafa);
-        this._rightMesh.material.needsUpdate = true;
+    if (isCover) {
+      // Front cover alone: page 1 on rightMesh, leftMesh hidden
+      if (this._leftMesh)    this._leftMesh.visible    = false;
+      if (this._leftOverlay) this._leftOverlay.visible = false;
+      if (this._rightMesh) {
+        this._rightMesh.visible = true;
+        this._applyTexture(this._rightMesh, 1);
+      }
+      if (this._rightOverlay) this._rightOverlay.visible = false;
+      if (this._spineMesh)    this._spineMesh.visible    = false;
+    } else if (isBackCover) {
+      // Back cover alone: last page on leftMesh, rightMesh hidden
+      if (this._leftMesh) {
+        this._leftMesh.visible = true;
+        this._applyTexture(this._leftMesh, lp);
+      }
+      if (this._leftOverlay)  this._leftOverlay.visible  = true;
+      if (this._rightMesh)    this._rightMesh.visible    = false;
+      if (this._rightOverlay) this._rightOverlay.visible = false;
+      if (this._spineMesh)    this._spineMesh.visible    = false;
+    } else {
+      // Normal spread
+      if (this._leftMesh) {
+        this._leftMesh.visible = true;
+        this._applyTexture(this._leftMesh, lp);
+      }
+      if (this._leftOverlay)  this._leftOverlay.visible  = isDouble;
+      if (this._rightOverlay) this._rightOverlay.visible = isDouble;
+      if (this._spineMesh)    this._spineMesh.visible    = isDouble;
+      if (isDouble && this._rightMesh) {
+        this._rightMesh.visible = true;
+        const rp = lp + 1;
+        if (rp <= this._totalPages) {
+          this._applyTexture(this._rightMesh, rp);
+        } else {
+          this._rightMesh.material.map = null;
+          this._rightMesh.material.color.set(0xfafafa);
+          this._rightMesh.material.needsUpdate = true;
+        }
       }
     }
   }
@@ -409,32 +473,53 @@ export class Animator {
     const growMesh   = isForward ? this._flipLeftMesh  : this._flipRightMesh;
 
     // Textures
+    // Forward from cover: page 1 is on rightMesh, so the turning page IS page 1, not page 2.
+    const currentIsCover  = this._isCoverSpread(this._currentLeftPage);
+    const targetIsCover   = this._isCoverSpread(targetLeftPage);
+    const targetIsBackCover = this._isBackCoverSpread(targetLeftPage);
+
     const turningPage = isForward
-      ? (isDouble ? this._currentLeftPage + 1 : this._currentLeftPage)
+      ? (isDouble ? (currentIsCover ? this._currentLeftPage : this._currentLeftPage + 1) : this._currentLeftPage)
       : this._currentLeftPage;
     this._applyTexture(shrinkMesh, turningPage);
 
+    // Backward to cover: cover is on the right side — backPage = 1 = targetLeftPage.
     const backPage = isForward
       ? targetLeftPage
-      : Math.min(targetLeftPage + 1, this._totalPages);
+      : (targetIsCover ? targetLeftPage : Math.min(targetLeftPage + 1, this._totalPages));
     growMesh.material.map = null;
     growMesh.material.color.set(0xffffff);
     this._applyTexture(growMesh, backPage);
 
-    // Update the static mesh that's hidden behind the shrink mesh immediately
+    // Update the static mesh hidden behind the shrink mesh immediately.
     if (isForward) {
       if (isDouble && this._rightMesh) {
-        const rp = targetLeftPage + 1;
-        if (rp <= this._totalPages) {
-          this._applyTexture(this._rightMesh, rp);
+        if (targetIsBackCover) {
+          // Going to back cover: rightMesh will be hidden, nothing to preload
+          this._rightMesh.visible = false;
+          if (this._rightOverlay) this._rightOverlay.visible = false;
         } else {
-          this._rightMesh.material.map = null;
-          this._rightMesh.material.color.set(0xfafafa);
-          this._rightMesh.material.needsUpdate = true;
+          this._rightMesh.visible = true;
+          if (this._rightOverlay) this._rightOverlay.visible = true;
+          const rp = targetLeftPage + 1;
+          if (rp <= this._totalPages) {
+            this._applyTexture(this._rightMesh, rp);
+          } else {
+            this._rightMesh.material.map = null;
+            this._rightMesh.material.color.set(0xfafafa);
+            this._rightMesh.material.needsUpdate = true;
+          }
         }
       }
     } else {
-      this._applyTexture(this._leftMesh, targetLeftPage);
+      if (targetIsCover) {
+        // Going backward to cover: leftMesh will be hidden in cover view
+        if (this._leftMesh)    this._leftMesh.visible    = false;
+        if (this._leftOverlay) this._leftOverlay.visible = false;
+      } else {
+        if (this._leftMesh) this._leftMesh.visible = true;
+        this._applyTexture(this._leftMesh, targetLeftPage);
+      }
     }
 
     // Position the cast shadow on the page the flip will land on.
@@ -460,6 +545,10 @@ export class Animator {
 
     const prog = { t: 0 };
 
+    // Animate bookGroup x-offset in sync with the flip so a lone cover/back-cover
+    // page slides smoothly to/from its centred position.
+    const groupXEnd = this._getGroupOffsetX(targetLeftPage);
+
     this._currentTimeline = gsap.timeline({
       onComplete: () => {
         this._currentLeftPage = targetLeftPage;
@@ -479,11 +568,29 @@ export class Animator {
         shrinkMesh.visible = false;
         growMesh.visible   = false;
 
+        // Restore correct mesh/overlay visibility for the target spread
+        const tIsCover     = this._isCoverSpread(targetLeftPage);
+        const tIsBackCover = this._isBackCoverSpread(targetLeftPage);
+        if (this._leftMesh)     this._leftMesh.visible     = !tIsCover;
+        if (this._rightMesh)    this._rightMesh.visible    = !tIsBackCover;
+        if (this._leftOverlay)  this._leftOverlay.visible  = !tIsCover && isDouble;
+        if (this._rightOverlay) this._rightOverlay.visible = !tIsBackCover && isDouble;
+        if (this._spineMesh)    this._spineMesh.visible    = !tIsCover && !tIsBackCover && isDouble;
+
         if (this._onPageChangeCb) this._onPageChangeCb(targetLeftPage);
         if (this._loader) this._loader.prefetch(targetLeftPage, this._totalPages);
         this._processQueue();
       },
     });
+
+    // Slide the whole book group to centre a lone cover/back-cover page
+    if (this._bookGroup.position.x !== groupXEnd) {
+      this._currentTimeline.to(
+        this._bookGroup.position,
+        { x: groupXEnd, duration: duration / 1000, ease: 'power2.inOut' },
+        0
+      );
+    }
 
     this._currentTimeline.to(prog, {
       t: 1,
@@ -509,7 +616,7 @@ export class Animator {
           this._shadowMesh.material.opacity = Math.sin(t * Math.PI) * 0.55;
         }
       },
-    });
+    }, 0); // position 0 = runs in parallel with the group slide
   }
 
   // ── Queue management ───────────────────────────────────────────────────────
