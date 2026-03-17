@@ -14,12 +14,16 @@ A JavaScript library that renders a PDF as an interactive 3D flipbook in the bro
 
 ## Installation
 
-Download the latest release and copy the `dist/` folder and `pageflipopen.css` into your project.
+```bash
+npm install pageflipopen
+```
+
+Or download the latest release and copy the `dist/` folder into your project.
 
 ## Quick Start
 
 ```html
-<link rel="stylesheet" href="pageflipopen.css" />
+<link rel="stylesheet" href="dist/pageflipopen.css" />
 <script src="dist/pageflipopen.min.js"></script>
 
 <div id="flipbook" style="width: 100%; height: 600px;"></div>

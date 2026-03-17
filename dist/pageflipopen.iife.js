@@ -42539,9 +42539,7 @@ void main() {
       if (this._forceSingle) return "single";
       const { width: pageW, height: pageH } = this._pageDimensions;
       if (pageW > pageH) return "single";
-      const containerW = this._container.clientWidth;
-      if (containerW >= pageW * 2) return "double";
-      return "single";
+      return "double";
     }
     _onResize() {
       this._currentLayout = this._detectLayout();
@@ -47057,8 +47055,11 @@ void main() {
         this._rightMesh.position.set(halfW, 0, 0);
         this._bookGroup.add(this._rightMesh);
         const leftTex = this._makeGradientTex([
-          [0, "rgba(255,0,0,1)"],
-          [1, "rgba(0,255,0,1)"]
+          [0, "rgba(0,0,0,0)"],
+          [0.4, "rgba(0,0,0,0)"],
+          [0.75, "rgba(0,0,0,0.05)"],
+          [0.9, "rgba(0,0,0,0.10)"],
+          [1, "rgba(0,0,0,0.15)"]
         ]);
         this._leftOverlay = new Mesh(
           new PlaneGeometry(pageW, pageH),
@@ -47067,8 +47068,11 @@ void main() {
         this._leftOverlay.position.set(-halfW, 0, 0.2);
         this._bookGroup.add(this._leftOverlay);
         const rightTex = this._makeGradientTex([
-          [0, "rgba(255,0,0,1)"],
-          [1, "rgba(0,255,0,1)"]
+          [0, "rgba(0,0,0,0.15)"],
+          [0.1, "rgba(0,0,0,0.10)"],
+          [0.25, "rgba(0,0,0,0.05)"],
+          [0.6, "rgba(0,0,0,0)"],
+          [1, "rgba(0,0,0,0)"]
         ]);
         this._rightOverlay = new Mesh(
           new PlaneGeometry(pageW, pageH),
@@ -47077,10 +47081,9 @@ void main() {
         this._rightOverlay.position.set(halfW, 0, 0.2);
         this._bookGroup.add(this._rightOverlay);
         const spineTex = this._makeGradientTex([
-          [0, "rgba(0,0,0,0.22)"],
-          [0.35, "rgba(0,0,0,0.08)"],
-          [0.55, "rgba(0,0,0,0.04)"],
-          [0.75, "rgba(0,0,0,0.01)"],
+          [0, "rgba(0,0,0,0.00)"],
+          [0.5, "rgba(0,0,0,0.08)"],
+          [0.51, "rgba(0,0,0,0.0)"],
           [1, "rgba(0,0,0,0)"]
         ]);
         this._spineMesh = new Mesh(
@@ -48326,6 +48329,7 @@ void main() {
     zoomIn: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
     zoomOut: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
     fullscreen: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+    download: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
     exitFullscreen: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>`
   };
   var FADE_TIMEOUT_MS = 2e3;
@@ -48344,6 +48348,7 @@ void main() {
       this._btnZoomIn = null;
       this._btnZoomOut = null;
       this._btnFullscreen = null;
+      this._btnDownload = null;
       this._currentPage = 1;
       this._totalPages = 1;
       this._fadeTimer = null;
@@ -48378,6 +48383,7 @@ void main() {
       <div class="pfo-toolbar-divider"></div>
       <div class="pfo-toolbar-group">
         <button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>
+        ${this._options.enableDownload ? `<button class="pfo-btn pfo-btn-download" title="Download PDF" aria-label="Download PDF">${ICONS.download}</button>` : ""}
       </div>
     `;
       this._el = el;
@@ -48392,6 +48398,7 @@ void main() {
       this._btnZoomIn = el.querySelector(".pfo-btn-zoom-in");
       this._btnZoomOut = el.querySelector(".pfo-btn-zoom-out");
       this._btnFullscreen = el.querySelector(".pfo-btn-fullscreen");
+      this._btnDownload = el.querySelector(".pfo-btn-download");
       this._btnFirst.addEventListener("click", () => this._emit("first"));
       this._btnPrev.addEventListener("click", () => this._emit("prev"));
       this._btnNext.addEventListener("click", () => this._emit("next"));
@@ -48399,6 +48406,9 @@ void main() {
       this._btnZoomIn.addEventListener("click", () => this._emit("zoomIn"));
       this._btnZoomOut.addEventListener("click", () => this._emit("zoomOut"));
       this._btnFullscreen.addEventListener("click", () => this._emit("toggleFullscreen"));
+      if (this._btnDownload) {
+        this._btnDownload.addEventListener("click", () => this._emit("download"));
+      }
       this._pageInput.addEventListener("change", () => {
         const val = parseInt(this._pageInput.value, 10);
         if (!isNaN(val) && val >= 1 && val <= this._totalPages) {
@@ -48491,6 +48501,8 @@ void main() {
     enableSound: false,
     soundUrl: null,
     enableFullscreen: true,
+    enableDownload: false,
+    downloadFilename: null,
     enableKeyboard: true,
     enableTouch: true,
     toolbar: true,
@@ -48557,6 +48569,7 @@ void main() {
       this._toolbar.on("zoomIn", () => this.zoomIn());
       this._toolbar.on("zoomOut", () => this.zoomOut());
       this._toolbar.on("toggleFullscreen", () => this.toggleFullscreen());
+      this._toolbar.on("download", () => this._downloadPDF());
       this._toolbar.on("flipTo", (page) => this.flipTo(page));
     }
     async _load() {
@@ -48680,6 +48693,13 @@ void main() {
     }
     toggleFullscreen() {
       if (this._viewport) this._viewport.toggleFullscreen();
+    }
+    _downloadPDF() {
+      if (!this._options.source) return;
+      const a = document.createElement("a");
+      a.href = this._options.source;
+      a.download = this._options.downloadFilename || this._options.source.split("/").pop() || "document.pdf";
+      a.click();
     }
     get isAnimating() {
       return this._animator ? this._animator.isAnimating : false;

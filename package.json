@@ -11,8 +11,17 @@
       "import": "./dist/pageflipopen.js",
       "default": "./dist/pageflipopen.iife.js"
     },
-    "./pageflipopen.css": "./pageflipopen.css"
+    "./pageflipopen.css": "./dist/pageflipopen.css"
   },
+  "files": [
+    "dist/pageflipopen.js",
+    "dist/pageflipopen.iife.js",
+    "dist/pageflipopen.min.js",
+    "dist/pageflipopen.css",
+    "dist/pdf.worker.mjs",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --dev",

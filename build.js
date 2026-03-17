@@ -5,10 +5,11 @@ import { extname, join } from 'path';
 
 // Copy the PDF.js worker into dist/ so it lives alongside the bundle.
 // loader.js resolves it as new URL('./pdf.worker.mjs', import.meta.url).
-function copyWorker() {
+function copyAssets() {
   mkdirSync('dist', { recursive: true });
   const workerSrc = join('node_modules', 'pdfjs-dist', 'build', 'pdf.worker.mjs');
   copyFileSync(workerSrc, join('dist', 'pdf.worker.mjs'));
+  copyFileSync(join('src', 'pageflipopen.css'), join('dist', 'pageflipopen.css'));
 }
 
 const isDev = process.argv.includes('--dev');
@@ -22,7 +23,7 @@ const sharedConfig = {
 };
 
 async function build() {
-  copyWorker();
+  copyAssets();
 
   // ES module output
   await esbuild.build({
@@ -55,7 +56,7 @@ async function build() {
 }
 
 async function dev() {
-  copyWorker();
+  copyAssets();
 
   const ctx = await esbuild.context({
     ...sharedConfig,
@@ -90,8 +91,6 @@ async function dev() {
       filePath = join(process.cwd(), urlPath);
     } else if (urlPath.startsWith('/assets/')) {
       filePath = join(process.cwd(), urlPath);
-    } else if (urlPath === '/pageflipopen.css') {
-      filePath = join(process.cwd(), 'pageflipopen.css');
     } else if (urlPath.startsWith('/node_modules/')) {
       filePath = join(process.cwd(), urlPath);
     } else {
