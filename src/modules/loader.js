@@ -111,14 +111,6 @@ export class Loader {
     };
   }
 
-  getPageDimensions() {
-    return this._pageDimensions;
-  }
-
-  getTotalPages() {
-    return this._pageMap.length;
-  }
-
   /**
    * Returns a Promise<CanvasTexture> for the given virtual page number.
    * Returns from cache if available.
@@ -295,33 +287,6 @@ export class Loader {
         this.getTexture(p).catch(() => {}); // silent prefetch
       }
     }
-  }
-
-  /**
-   * Create a placeholder CanvasTexture (grey with loading indicator).
-   */
-  createPlaceholderTexture(width = 400, height = 600) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#e8e8e8';
-    ctx.fillRect(0, 0, width, height);
-    // Simple loading pattern
-    ctx.fillStyle = '#cccccc';
-    const size = 40;
-    for (let y = 0; y < height; y += size * 2) {
-      for (let x = 0; x < width; x += size * 2) {
-        ctx.fillRect(x, y, size, size);
-        ctx.fillRect(x + size, y + size, size, size);
-      }
-    }
-    const texture = new CanvasTexture(canvas);
-    texture.generateMipmaps = false;
-    texture.minFilter = LinearFilter;
-    texture.magFilter = LinearFilter;
-    texture.needsUpdate = true;
-    return texture;
   }
 
   destroy() {

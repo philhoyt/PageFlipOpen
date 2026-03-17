@@ -15,16 +15,19 @@ export class Viewport {
     this._isFullscreen = false;
 
     this._boundFullscreenChange = this._onFullscreenChange.bind(this);
+    this._boundPointerUp = () => {
+      const scale = this._panzoom ? this._panzoom.getScale() : 1;
+      if (scale > 1.01) this._canvas.style.cursor = 'grab';
+    };
     this._boundWheelHandler = null;
 
     this._init();
   }
 
   _init() {
-    // Wrap canvas in a panzoom container div
+    // Wrap canvas in a panzoom container div (styled entirely by .pfo-panzoom-wrapper in CSS)
     const wrapper = document.createElement('div');
     wrapper.classList.add('pfo-panzoom-wrapper');
-    wrapper.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:calc(100% - 44px);overflow:hidden;';
 
     const parent = this._canvas.parentNode;
     parent.insertBefore(wrapper, this._canvas);
@@ -69,10 +72,7 @@ export class Viewport {
       const scale = this._panzoom.getScale();
       if (scale > 1.01) this._canvas.style.cursor = 'grabbing';
     });
-    document.addEventListener('pointerup', () => {
-      const scale = this._panzoom.getScale();
-      if (scale > 1.01) this._canvas.style.cursor = 'grab';
-    });
+    document.addEventListener('pointerup', this._boundPointerUp);
 
     if (this._options.enableFullscreen !== false) {
       document.addEventListener('fullscreenchange', this._boundFullscreenChange);
@@ -155,6 +155,7 @@ export class Viewport {
     if (this._boundWheelHandler && this._wrapper) {
       this._wrapper.removeEventListener('wheel', this._boundWheelHandler);
     }
+    document.removeEventListener('pointerup', this._boundPointerUp);
     document.removeEventListener('fullscreenchange', this._boundFullscreenChange);
   }
 }

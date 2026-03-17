@@ -95,11 +95,6 @@
   pointer-events: none;
 }
 
-.pfo-toolbar--visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .pfo-toolbar-group {
   display: flex;
   align-items: center;
@@ -217,21 +212,6 @@
   opacity: 0.85;
   cursor: default;
   padding: 0 2px;
-}
-
-/* ============================================================
-   Loading state
-   ============================================================ */
-
-.pfo-flipbook--loading::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--pfo-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
 }
 
 /* ============================================================

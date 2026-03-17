@@ -25,8 +25,12 @@
 
 import * as THREE from 'three';
 import { gsap } from 'gsap';
+import { TOOLBAR_HEIGHT } from './constants.js';
 
 const LIFT_FACTOR = 0.45;
+
+// Pre-normalized light direction — computed once, reused every vertex per frame.
+const LIGHT = new THREE.Vector3(0.3, 0.5, 1.0).normalize();
 
 export class Animator {
   constructor(container, options = {}) {
@@ -97,15 +101,14 @@ export class Animator {
     this._totalPages = totalPages;
 
     const containerW = this._container.clientWidth;
-    const containerH = this._container.clientHeight - 44; // subtract toolbar
+    const containerH = this._container.clientHeight - TOOLBAR_HEIGHT;
 
     this._renderer.setSize(containerW, containerH);
 
-    // PerspectiveCamera calibrated so the scene at z=0 maps exactly to the
-    // container in CSS pixels (1 world unit = 1 pixel at z=0).
-    // cameraZ = containerH × 1.0 gives ~53° vFOV — enough perspective that
-    // the flipping page's Z arc reads as dramatic depth.
-    const cameraZ = containerH * 1.0;
+    // PerspectiveCamera calibrated so the scene at z=0 maps 1:1 to CSS pixels.
+    // cameraZ = containerH gives ~53° vFOV — enough perspective that the
+    // flipping page's Z arc reads as dramatic depth.
+    const cameraZ = containerH;
     const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
     this._camera = new THREE.PerspectiveCamera(fovY, containerW / containerH, 0.1, cameraZ * 4);
     this._camera.position.set(0, 0, cameraZ);
@@ -335,11 +338,9 @@ export class Animator {
     colors.needsUpdate = true;
   }
 
-  /** Ambient + diffuse shading from a fixed upper-right light direction. */
+  /** Ambient + diffuse shading against the pre-normalized module-level LIGHT. */
   _shade(nx, ny, nz) {
-    const LX = 0.3, LY = 0.5, LZ = 1.0;
-    const len = Math.sqrt(LX * LX + LY * LY + LZ * LZ);
-    const dot = (nx * LX + ny * LY + nz * LZ) / len;
+    const dot = nx * LIGHT.x + ny * LIGHT.y + nz * LIGHT.z;
     return 0.68 + 0.32 * Math.max(0, dot);
   }
 
@@ -441,7 +442,7 @@ export class Animator {
     // Each direction has its own gradient texture so the shadow always reads
     // dark near the spine and transparent toward the outer page edge.
     if (this._shadowMesh) {
-      this._shadowMesh.position.x = isForward ? -halfW(pageW) : halfW(pageW);
+      this._shadowMesh.position.x = isForward ? -(pageW / 2) : (pageW / 2);
       this._shadowMesh.material.map = isForward ? this._shadowFwdTex : this._shadowBwdTex;
       this._shadowMesh.material.opacity = 0;
       this._shadowMesh.material.needsUpdate = true;
@@ -478,7 +479,6 @@ export class Animator {
         shrinkMesh.visible = false;
         growMesh.visible   = false;
 
-        this._updateTextures();
         if (this._onPageChangeCb) this._onPageChangeCb(targetLeftPage);
         if (this._loader) this._loader.prefetch(targetLeftPage, this._totalPages);
         this._processQueue();
@@ -524,7 +524,7 @@ export class Animator {
     if (this._flipLeftMesh)  this._flipLeftMesh.visible  = false;
     if (this._shadowMesh)    this._shadowMesh.material.opacity = 0;
     this._isAnimating = false;
-    this._updateTextures();
+    if (this._onAnimationEndCb) this._onAnimationEndCb();
   }
 
   // ── Render loop ────────────────────────────────────────────────────────────
@@ -552,5 +552,3 @@ export class Animator {
     }
   }
 }
-
-function halfW(pageW) { return pageW / 2; }

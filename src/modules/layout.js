@@ -1,8 +1,9 @@
 /**
  * layout.js — Page Layout Detection
  * Determines single vs double page mode, calculates geometry, handles resize.
- * Pure geometry logic — no external dependencies.
  */
+
+import { TOOLBAR_HEIGHT } from './constants.js';
 
 const RESIZE_DEBOUNCE_MS = 100;
 const BOOK_PADDING = 0.88; // book fills 88% of container — leaves breathing room
@@ -48,14 +49,8 @@ export class Layout {
   }
 
   _onResize() {
-    const prev = this._currentLayout;
     this._currentLayout = this._detectLayout();
-    if (this._currentLayout !== prev) {
-      for (const cb of this._changeCallbacks) cb(this._currentLayout);
-    } else {
-      // Still fire for dimension updates (e.g. container resized but layout same)
-      for (const cb of this._changeCallbacks) cb(this._currentLayout);
-    }
+    for (const cb of this._changeCallbacks) cb(this._currentLayout);
   }
 
   onLayoutChange(callback) {
@@ -74,10 +69,9 @@ export class Layout {
     const containerW = this._container.clientWidth;
     const containerH = this._container.clientHeight;
     const { width: pdfW, height: pdfH } = this._pageDimensions;
-    const toolbarHeight = 44; // --pfo-toolbar-height
-    const availableH = containerH - toolbarHeight;
+    const availableH = containerH - TOOLBAR_HEIGHT;
 
-    let spreadCols = this._currentLayout === 'double' ? 2 : 1;
+    const spreadCols = this._currentLayout === 'double' ? 2 : 1;
     const availableW = containerW * BOOK_PADDING;
     const availableH_padded = availableH * BOOK_PADDING;
 
@@ -157,15 +151,6 @@ export class Layout {
     }
     if (currentLeftPage === 2 || currentLeftPage === 3) return 1;
     return Math.max(currentLeftPage - 2, 1);
-  }
-
-  setForceSingle(value) {
-    this._forceSingle = value;
-    const prev = this._currentLayout;
-    this._currentLayout = this._detectLayout();
-    if (this._currentLayout !== prev) {
-      for (const cb of this._changeCallbacks) cb(this._currentLayout);
-    }
   }
 
   destroy() {

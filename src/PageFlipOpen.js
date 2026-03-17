@@ -46,7 +46,6 @@ export class PageFlipOpen {
     // Public read-only state
     this.currentPage = this._options.startPage;
     this.totalPages = 0;
-    this.isAnimating = false;
     this.layout = 'double';
 
     // Modules
@@ -95,19 +94,9 @@ export class PageFlipOpen {
     this._animator = new Animator(this._container, this._options);
     this._animator.setLoader(this._loader);
     this._animator.onPageChange((leftPage) => {
-      // Update currentPage to the "active" page of the spread
       this.currentPage = leftPage;
-      this.isAnimating = this._animator.isAnimating;
-
-      if (this._toolbar) {
-        this._toolbar.setPage(this.currentPage, this.totalPages);
-      }
-      if (this._options.onPageChange) {
-        this._options.onPageChange(this.currentPage);
-      }
-    });
-    this._animator.onAnimationEnd(() => {
-      this.isAnimating = false;
+      if (this._toolbar) this._toolbar.setPage(this.currentPage, this.totalPages);
+      if (this._options.onPageChange) this._options.onPageChange(this.currentPage);
     });
 
     // Toolbar (build early; interactions wired after animator canvas is available)
@@ -141,9 +130,9 @@ export class PageFlipOpen {
       );
       this.layout = this._layout.getCurrentLayout();
 
-      // Clamp startPage
-      this.currentPage = Math.max(1, Math.min(this._options.startPage, totalPages));
-      const leftPage = this._layout.getSpreadLeftPage(this.currentPage);
+      // Clamp startPage to valid range then normalise to spread left page
+      const clamped = Math.max(1, Math.min(this._options.startPage, totalPages));
+      const leftPage = this._layout.getSpreadLeftPage(clamped);
       this.currentPage = leftPage;
 
       // Build the Three.js scene
@@ -238,7 +227,6 @@ export class PageFlipOpen {
     if (targetLeft === this.currentPage) return;
 
     const direction = targetLeft > this.currentPage ? 'forward' : 'backward';
-    this.isAnimating = true;
     this._animator.flipTo(targetLeft, direction);
   }
 
@@ -280,6 +268,10 @@ export class PageFlipOpen {
 
   toggleFullscreen() {
     if (this._viewport) this._viewport.toggleFullscreen();
+  }
+
+  get isAnimating() {
+    return this._animator ? this._animator.isAnimating : false;
   }
 
   /**

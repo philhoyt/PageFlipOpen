@@ -16,6 +16,8 @@
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js --dev",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -26,6 +28,9 @@
     "three": "^0.167.1"
   },
   "devDependencies": {
-    "esbuild": "^0.23.0"
+    "@eslint/js": "^10.0.1",
+    "esbuild": "^0.23.0",
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0"
   }
 }

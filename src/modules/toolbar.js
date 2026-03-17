@@ -136,18 +136,12 @@ export class Toolbar {
 
   _show() {
     this._visible = true;
-    if (this._el) {
-      this._el.classList.remove('pfo-toolbar--hidden');
-      this._el.classList.add('pfo-toolbar--visible');
-    }
+    if (this._el) this._el.classList.remove('pfo-toolbar--hidden');
   }
 
   _hide() {
     this._visible = false;
-    if (this._el) {
-      this._el.classList.remove('pfo-toolbar--visible');
-      this._el.classList.add('pfo-toolbar--hidden');
-    }
+    if (this._el) this._el.classList.add('pfo-toolbar--hidden');
   }
 
   _resetFadeTimer() {
