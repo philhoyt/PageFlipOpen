@@ -1,6 +1,6 @@
 {
   "name": "pageflipopen",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Self-contained JavaScript class that renders a PDF as an interactive 3D flipbook in the browser.",
   "license": "MIT",
   "type": "module",
