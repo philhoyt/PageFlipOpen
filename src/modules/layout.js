@@ -16,13 +16,17 @@ export class Layout {
     this._currentLayout = 'double'; // 'single' | 'double'
     this._forceSingle = false;
     this._changeCallbacks = [];
+    this._resizeCallbacks = [];
     this._resizeTimer = null;
 
-    this._observer = new ResizeObserver(() => {
+    this._boundTrigger = () => {
       clearTimeout(this._resizeTimer);
       this._resizeTimer = setTimeout(() => this._onResize(), RESIZE_DEBOUNCE_MS);
-    });
+    };
+
+    this._observer = new ResizeObserver(this._boundTrigger);
     this._observer.observe(this._container);
+    window.addEventListener('resize', this._boundTrigger);
   }
 
   init(pageDimensions, totalPages, forceSingle = false) {
@@ -44,12 +48,25 @@ export class Layout {
   }
 
   _onResize() {
-    this._currentLayout = this._detectLayout();
-    for (const cb of this._changeCallbacks) cb(this._currentLayout);
+    const newLayout = this._detectLayout();
+    const layoutChanged = newLayout !== this._currentLayout;
+    this._currentLayout = newLayout;
+
+    if (layoutChanged) {
+      // Layout type changed (single ↔ double) — full rebuild needed
+      for (const cb of this._changeCallbacks) cb(this._currentLayout);
+    } else {
+      // Same layout, container just resized — lightweight resize
+      for (const cb of this._resizeCallbacks) cb(this._currentLayout);
+    }
   }
 
   onLayoutChange(callback) {
     this._changeCallbacks.push(callback);
+  }
+
+  onResize(callback) {
+    this._resizeCallbacks.push(callback);
   }
 
   getCurrentLayout() {
@@ -151,6 +168,8 @@ export class Layout {
   destroy() {
     clearTimeout(this._resizeTimer);
     this._observer.disconnect();
+    window.removeEventListener('resize', this._boundTrigger);
     this._changeCallbacks = [];
+    this._resizeCallbacks = [];
   }
 }

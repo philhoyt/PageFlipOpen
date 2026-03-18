@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PageFlipOpen — Demo</title>
+  <link rel="stylesheet" href="/dist/pageflipopen.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body { background: #1a1a1a; }
+    #flipbook {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="flipbook"></div>
+
+  <script type="module">
+    import { PageFlipOpen } from '/dist/pageflipopen.js';
+
+    new PageFlipOpen(document.getElementById('flipbook'), {
+      source: '/test/compressed.tracemonkey-pldi-09.pdf',
+      toolbarAlwaysVisible: false,
+      enableDownload: true,
+      enableFullscreen: true,
+    });
+  </script>
+</body>
+</html>

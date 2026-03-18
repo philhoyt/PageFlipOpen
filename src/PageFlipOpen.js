@@ -92,6 +92,15 @@ export class PageFlipOpen {
       }
     });
 
+    this._layout.onResize(() => {
+      if (this._animator && this._ready) {
+        const dims = this._layout.getPageDimensions();
+        const dpr = window.devicePixelRatio || 1;
+        this._loader.setRenderScale(dims.scale * dpr * 1.5);
+        this._animator.resize(dims);
+      }
+    });
+
     // Animator
     this._animator = new Animator(this._container, this._options);
     this._animator.setLoader(this._loader);

@@ -23,14 +23,26 @@
  * providing natural foreshortening — the primary 3D depth cue.
  */
 
-import * as THREE from 'three';
+import {
+  Vector3,
+  Scene,
+  Group,
+  WebGLRenderer,
+  PerspectiveCamera,
+  Mesh,
+  PlaneGeometry,
+  MeshBasicMaterial,
+  BufferAttribute,
+  CanvasTexture,
+  FrontSide,
+} from 'three';
 import { gsap } from 'gsap';
 import { TOOLBAR_HEIGHT } from './constants.js';
 
 const LIFT_FACTOR = 0.45;
 
 // Pre-normalized light direction — computed once, reused every vertex per frame.
-const LIGHT = new THREE.Vector3(0.3, 0.5, 1.0).normalize();
+const LIGHT = new Vector3(0.3, 0.5, 1.0).normalize();
 
 export class Animator {
   constructor(container, options = {}) {
@@ -74,17 +86,18 @@ export class Animator {
     this._loader = null;
 
     this._bookGroup = null;
+    this._buildSceneDims = null; // page dims at the time of the last buildScene call
 
     this._init();
   }
 
   _init() {
-    this._scene = new THREE.Scene();
+    this._scene = new Scene();
 
-    this._bookGroup = new THREE.Group();
+    this._bookGroup = new Group();
     this._scene.add(this._bookGroup);
 
-    this._renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this._renderer = new WebGLRenderer({ antialias: true, alpha: true });
     this._renderer.setPixelRatio(window.devicePixelRatio || 1);
 
     const canvas = this._renderer.domElement;
@@ -101,6 +114,7 @@ export class Animator {
 
   buildScene(pageDims, layout, currentLeftPage, totalPages) {
     this._pageDims = pageDims;
+    this._buildSceneDims = pageDims;
     this._layout = layout;
     this._currentLeftPage = currentLeftPage;
     this._totalPages = totalPages;
@@ -109,13 +123,14 @@ export class Animator {
     const containerH = Math.max(1, this._container.clientHeight - TOOLBAR_HEIGHT);
 
     this._renderer.setSize(containerW, containerH);
+    this._bookGroup.scale.set(1, 1, 1);
 
     // PerspectiveCamera calibrated so the scene at z=0 maps 1:1 to CSS pixels.
     // cameraZ = containerH gives ~53° vFOV — enough perspective that the
     // flipping page's Z arc reads as dramatic depth.
     const cameraZ = containerH;
     const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
-    this._camera = new THREE.PerspectiveCamera(fovY, containerW / containerH, 0.1, cameraZ * 4);
+    this._camera = new PerspectiveCamera(fovY, containerW / containerH, 0.1, cameraZ * 4);
     this._camera.position.set(0, 0, cameraZ);
     this._camera.lookAt(0, 0, 0);
 
@@ -123,6 +138,43 @@ export class Animator {
     this._bookGroup.position.x = this._getGroupOffsetX(currentLeftPage);
     this._buildPageMeshes(pageDims.pageWidth, pageDims.pageHeight, layout);
     this._updateTextures();
+  }
+
+  /**
+   * Lightweight resize — updates the renderer, camera, and book group scale
+   * without tearing down or rebuilding geometry. Use for pure container-size
+   * changes where the layout (single/double) has not changed.
+   */
+  resize(newPageDims) {
+    if (!this._camera || !this._renderer || !this._bookGroup) return;
+    if (!newPageDims || newPageDims.pageHeight <= 0) return;
+
+    const containerW = Math.max(1, this._container.clientWidth);
+    const containerH = Math.max(1, this._container.clientHeight - TOOLBAR_HEIGHT);
+
+    this._renderer.setSize(containerW, containerH);
+
+    // Recalibrate camera (same formula as buildScene)
+    const cameraZ = containerH;
+    const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
+    this._camera.fov = fovY;
+    this._camera.aspect = containerW / containerH;
+    this._camera.position.z = cameraZ;
+    this._camera.far = cameraZ * 4;
+    this._camera.updateProjectionMatrix();
+
+    // Scale the book group so existing meshes fill the new container.
+    // _pageDims intentionally stays as the original buildScene geometry dimensions
+    // so that flip deformation (which uses pageW to index into original vertex
+    // positions) and shadow placement (±pageW/2 in group-local space) remain
+    // correct — the group-level scale makes them land in the right world position.
+    // position.x (cover centring offset) is recomputed in geometry space and
+    // then scaled to world space by the same factor.
+    if (this._buildSceneDims && this._buildSceneDims.pageHeight > 0) {
+      const scale = newPageDims.pageHeight / this._buildSceneDims.pageHeight;
+      this._bookGroup.scale.set(scale, scale, scale);
+      this._bookGroup.position.x = this._getGroupOffsetX(this._currentLeftPage) * scale;
+    }
   }
 
   _clearMeshes() {
@@ -165,17 +217,17 @@ export class Animator {
 
     // ── Static page meshes ────────────────────────────────────────────────────
 
-    this._leftMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(pageW, pageH),
-      new THREE.MeshBasicMaterial({ color: 0xffffff })
+    this._leftMesh = new Mesh(
+      new PlaneGeometry(pageW, pageH),
+      new MeshBasicMaterial({ color: 0xffffff })
     );
     this._leftMesh.position.set(isDouble ? -halfW : 0, 0, 0);
     this._bookGroup.add(this._leftMesh);
 
     if (isDouble) {
-      this._rightMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(pageW, pageH),
-        new THREE.MeshBasicMaterial({ color: 0xffffff })
+      this._rightMesh = new Mesh(
+        new PlaneGeometry(pageW, pageH),
+        new MeshBasicMaterial({ color: 0xffffff })
       );
       this._rightMesh.position.set(halfW, 0, 0);
       this._bookGroup.add(this._rightMesh);
@@ -194,9 +246,9 @@ export class Animator {
         [0.90, 'rgba(0,0,0,0.10)'],
         [1.0,  'rgba(0,0,0,0.15)'],
       ]);
-      this._leftOverlay = new THREE.Mesh(
-        new THREE.PlaneGeometry(pageW, pageH),
-        new THREE.MeshBasicMaterial({ map: leftTex, transparent: true, depthWrite: false })
+      this._leftOverlay = new Mesh(
+        new PlaneGeometry(pageW, pageH),
+        new MeshBasicMaterial({ map: leftTex, transparent: true, depthWrite: false })
       );
       this._leftOverlay.position.set(-halfW, 0, 0.2);
       this._bookGroup.add(this._leftOverlay);
@@ -209,9 +261,9 @@ export class Animator {
         [0.60, 'rgba(0,0,0,0)'],
         [1.0,  'rgba(0,0,0,0)'],
       ]);
-      this._rightOverlay = new THREE.Mesh(
-        new THREE.PlaneGeometry(pageW, pageH),
-        new THREE.MeshBasicMaterial({ map: rightTex, transparent: true, depthWrite: false })
+      this._rightOverlay = new Mesh(
+        new PlaneGeometry(pageW, pageH),
+        new MeshBasicMaterial({ map: rightTex, transparent: true, depthWrite: false })
       );
       this._rightOverlay.position.set(halfW, 0, 0.2);
       this._bookGroup.add(this._rightOverlay);
@@ -224,9 +276,9 @@ export class Animator {
         [0.51, 'rgba(0,0,0,0.0)'],
         [1.0,  'rgba(0,0,0,0)'],
       ]);
-      this._spineMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(pageW * 0.04, pageH),
-        new THREE.MeshBasicMaterial({ map: spineTex, transparent: true, depthWrite: false })
+      this._spineMesh = new Mesh(
+        new PlaneGeometry(pageW * 0.04, pageH),
+        new MeshBasicMaterial({ map: spineTex, transparent: true, depthWrite: false })
       );
       this._spineMesh.position.set(0, 0, 0.5);
       this._bookGroup.add(this._spineMesh);
@@ -235,25 +287,25 @@ export class Animator {
     // ── Flip meshes ───────────────────────────────────────────────────────────
 
     const makeFlipGeo = (translateX) => {
-      const g = new THREE.PlaneGeometry(pageW, pageH, 60, 10);
+      const g = new PlaneGeometry(pageW, pageH, 60, 10);
       g.translate(translateX, 0, 0);
       g.userData.originalPositions = g.attributes.position.array.slice();
       const n = g.attributes.position.count;
-      g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3).fill(1), 3));
+      g.setAttribute('color', new BufferAttribute(new Float32Array(n * 3).fill(1), 3));
       return g;
     };
 
-    this._flipRightMesh = new THREE.Mesh(
+    this._flipRightMesh = new Mesh(
       makeFlipGeo(pageW / 2),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: THREE.FrontSide })
+      new MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: FrontSide })
     );
     this._flipRightMesh.position.set(0, 0, 2);
     this._flipRightMesh.visible = false;
     this._bookGroup.add(this._flipRightMesh);
 
-    this._flipLeftMesh = new THREE.Mesh(
+    this._flipLeftMesh = new Mesh(
       makeFlipGeo(-pageW / 2),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: THREE.FrontSide })
+      new MeshBasicMaterial({ color: 0xffffff, vertexColors: true, side: FrontSide })
     );
     this._flipLeftMesh.position.set(0, 0, 2);
     this._flipLeftMesh.visible = false;
@@ -277,9 +329,9 @@ export class Animator {
       [0.30, 'rgba(0,0,0,0)'],
       [1.0,  'rgba(0,0,0,0)'],
     ]);
-    this._shadowMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(pageW, pageH),
-      new THREE.MeshBasicMaterial({
+    this._shadowMesh = new Mesh(
+      new PlaneGeometry(pageW, pageH),
+      new MeshBasicMaterial({
         map: this._shadowFwdTex, transparent: true, opacity: 0, depthWrite: false,
       })
     );
@@ -302,7 +354,7 @@ export class Animator {
     for (const [pos, color] of stops) grad.addColorStop(pos, color);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, 256, 4);
-    const tex = new THREE.CanvasTexture(canvas);
+    const tex = new CanvasTexture(canvas);
     tex.needsUpdate = true;
     return tex;
   }

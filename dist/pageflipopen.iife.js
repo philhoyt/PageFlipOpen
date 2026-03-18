@@ -42522,12 +42522,15 @@ void main() {
       this._currentLayout = "double";
       this._forceSingle = false;
       this._changeCallbacks = [];
+      this._resizeCallbacks = [];
       this._resizeTimer = null;
-      this._observer = new ResizeObserver(() => {
+      this._boundTrigger = () => {
         clearTimeout(this._resizeTimer);
         this._resizeTimer = setTimeout(() => this._onResize(), RESIZE_DEBOUNCE_MS);
-      });
+      };
+      this._observer = new ResizeObserver(this._boundTrigger);
       this._observer.observe(this._container);
+      window.addEventListener("resize", this._boundTrigger);
     }
     init(pageDimensions, totalPages, forceSingle = false) {
       this._pageDimensions = pageDimensions;
@@ -42542,11 +42545,20 @@ void main() {
       return "double";
     }
     _onResize() {
-      this._currentLayout = this._detectLayout();
-      for (const cb of this._changeCallbacks) cb(this._currentLayout);
+      const newLayout = this._detectLayout();
+      const layoutChanged = newLayout !== this._currentLayout;
+      this._currentLayout = newLayout;
+      if (layoutChanged) {
+        for (const cb of this._changeCallbacks) cb(this._currentLayout);
+      } else {
+        for (const cb of this._resizeCallbacks) cb(this._currentLayout);
+      }
     }
     onLayoutChange(callback) {
       this._changeCallbacks.push(callback);
+    }
+    onResize(callback) {
+      this._resizeCallbacks.push(callback);
     }
     getCurrentLayout() {
       return this._currentLayout;
@@ -42630,7 +42642,9 @@ void main() {
     destroy() {
       clearTimeout(this._resizeTimer);
       this._observer.disconnect();
+      window.removeEventListener("resize", this._boundTrigger);
       this._changeCallbacks = [];
+      this._resizeCallbacks = [];
     }
   };
 
@@ -46954,6 +46968,7 @@ void main() {
       this._onAnimationEndCb = null;
       this._loader = null;
       this._bookGroup = null;
+      this._buildSceneDims = null;
       this._init();
     }
     _init() {
@@ -46979,12 +46994,14 @@ void main() {
     }
     buildScene(pageDims, layout, currentLeftPage, totalPages) {
       this._pageDims = pageDims;
+      this._buildSceneDims = pageDims;
       this._layout = layout;
       this._currentLeftPage = currentLeftPage;
       this._totalPages = totalPages;
       const containerW = Math.max(1, this._container.clientWidth);
       const containerH = Math.max(1, this._container.clientHeight - TOOLBAR_HEIGHT);
       this._renderer.setSize(containerW, containerH);
+      this._bookGroup.scale.set(1, 1, 1);
       const cameraZ = containerH;
       const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
       this._camera = new PerspectiveCamera(fovY, containerW / containerH, 0.1, cameraZ * 4);
@@ -46994,6 +47011,30 @@ void main() {
       this._bookGroup.position.x = this._getGroupOffsetX(currentLeftPage);
       this._buildPageMeshes(pageDims.pageWidth, pageDims.pageHeight, layout);
       this._updateTextures();
+    }
+    /**
+     * Lightweight resize — updates the renderer, camera, and book group scale
+     * without tearing down or rebuilding geometry. Use for pure container-size
+     * changes where the layout (single/double) has not changed.
+     */
+    resize(newPageDims) {
+      if (!this._camera || !this._renderer || !this._bookGroup) return;
+      if (!newPageDims || newPageDims.pageHeight <= 0) return;
+      const containerW = Math.max(1, this._container.clientWidth);
+      const containerH = Math.max(1, this._container.clientHeight - TOOLBAR_HEIGHT);
+      this._renderer.setSize(containerW, containerH);
+      const cameraZ = containerH;
+      const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
+      this._camera.fov = fovY;
+      this._camera.aspect = containerW / containerH;
+      this._camera.position.z = cameraZ;
+      this._camera.far = cameraZ * 4;
+      this._camera.updateProjectionMatrix();
+      if (this._buildSceneDims && this._buildSceneDims.pageHeight > 0) {
+        const scale = newPageDims.pageHeight / this._buildSceneDims.pageHeight;
+        this._bookGroup.scale.set(scale, scale, scale);
+        this._bookGroup.position.x = this._getGroupOffsetX(this._currentLeftPage) * scale;
+      }
     }
     _clearMeshes() {
       if (this._shadowFwdTex) {
@@ -48552,6 +48593,14 @@ void main() {
           this._loader.setRenderScale(dims.scale * dpr * 1.5);
           const leftPage = this._layout.getSpreadLeftPage(this.currentPage);
           this._animator.buildScene(dims, newLayout, leftPage, this.totalPages);
+        }
+      });
+      this._layout.onResize(() => {
+        if (this._animator && this._ready) {
+          const dims = this._layout.getPageDimensions();
+          const dpr = window.devicePixelRatio || 1;
+          this._loader.setRenderScale(dims.scale * dpr * 1.5);
+          this._animator.resize(dims);
         }
       });
       this._animator = new Animator(this._container, this._options);
