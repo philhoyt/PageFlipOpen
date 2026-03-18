@@ -46967,8 +46967,8 @@ var Animator = class {
     this._layout = layout;
     this._currentLeftPage = currentLeftPage;
     this._totalPages = totalPages;
-    const containerW = this._container.clientWidth;
-    const containerH = this._container.clientHeight - TOOLBAR_HEIGHT;
+    const containerW = Math.max(1, this._container.clientWidth);
+    const containerH = Math.max(1, this._container.clientHeight - TOOLBAR_HEIGHT);
     this._renderer.setSize(containerW, containerH);
     const cameraZ = containerH;
     const fovY = 2 * Math.atan(containerH / 2 / cameraZ) * (180 / Math.PI);
@@ -48764,4 +48764,3 @@ gsap/CSSPlugin.js:
    * @author: Jack Doyle, jack@greensock.com
   *)
 */
-//# sourceMappingURL=pageflipopen.js.map
