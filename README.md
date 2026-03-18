@@ -6,11 +6,12 @@ A JavaScript library that renders a PDF as an interactive 3D flipbook in the bro
 
 - 3D page-turn animation
 - PDF rendering via PDF.js
-- Double-page spread layout
-- Pinch-to-zoom and pan (touch and mouse)
+- Double-page spread with automatic single/double layout detection
+- Responsive — adapts to container and viewport size changes
+- Pinch-to-zoom and pan (touch and mouse wheel)
 - Keyboard navigation
 - Fullscreen support
-- Toolbar
+- Configurable toolbar with auto-hide
 
 ## Installation
 
@@ -44,20 +45,21 @@ Or download the latest release and copy the `dist/` folder into your project.
 | `source` | `string` | `null` | URL of the PDF to load. Required. |
 | `startPage` | `number` | `1` | Page to open on. |
 | `flipDuration` | `number` | `800` | Page-turn animation duration in ms. |
-| `autoLayout` | `boolean` | `true` | Detect single vs double page based on container width. |
+| `autoLayout` | `boolean` | `true` | Automatically switch between single and double page layout based on container width. |
 | `singlePageMode` | `boolean` | `false` | Force single-page layout. |
+| `enableZoom` | `boolean` | `true` | Enable zoom (mouse wheel, pinch, and toolbar buttons). |
 | `zoom` | `number` | `1` | Initial zoom level. |
 | `zoomMin` | `number` | `1` | Minimum zoom level. |
 | `zoomMax` | `number` | `3` | Maximum zoom level. |
 | `backgroundColor` | `string` | `'transparent'` | Container background colour. |
 | `pageBackground` | `string` | `'#fff'` | Page background colour. |
-| `enableFullscreen` | `boolean` | `true` | Show fullscreen button. |
+| `enableFullscreen` | `boolean` | `true` | Show fullscreen button and enable fullscreen mode. |
 | `enableDownload` | `boolean` | `false` | Show download button. |
-| `downloadFilename` | `string` | `null` | Filename for download. Defaults to the PDF filename from the URL. |
+| `downloadFilename` | `string` | `null` | Filename for downloaded PDF. Defaults to the filename from the source URL. |
 | `enableKeyboard` | `boolean` | `true` | Enable arrow key navigation. |
-| `enableTouch` | `boolean` | `true` | Enable touch gestures. |
+| `enableTouch` | `boolean` | `true` | Enable touch gestures (swipe and pinch). |
 | `toolbar` | `boolean` | `true` | Show the toolbar. |
-| `toolbarAlwaysVisible` | `boolean` | `false` | Keep toolbar visible instead of fading. |
+| `toolbarAlwaysVisible` | `boolean` | `false` | Keep toolbar visible instead of auto-hiding. |
 | `onReady` | `function` | `null` | Called when the PDF is loaded and ready. |
 | `onPageChange` | `function` | `null` | Called with the current page number on each page turn. |
 | `onError` | `function` | `null` | Called with an `Error` when loading fails. |

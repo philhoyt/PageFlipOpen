@@ -34,19 +34,20 @@ export class Viewport {
     wrapper.appendChild(this._canvas);
     this._wrapper = wrapper;
 
+    const zoomEnabled = this._options.enableZoom !== false;
     this._panzoom = Panzoom(this._canvas, {
-      maxScale: this._options.zoomMax || 3,
+      maxScale: zoomEnabled ? (this._options.zoomMax || 3) : 1,
       minScale: this._options.zoomMin || 1,
       step: 0.25,
       contain: 'outside',
       cursor: 'default',
       touchAction: 'none',
-      // Disable pan at scale 1
       startScale: this._options.zoom || 1,
     });
 
     // Mouse wheel zoom
     this._boundWheelHandler = (e) => {
+      if (!zoomEnabled) return;
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         this._panzoom.zoomWithWheel(e);

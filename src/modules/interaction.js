@@ -56,7 +56,7 @@ export class Interaction {
     this._hammer.on('swipeleft',  () => { if (this._onNext) this._onNext(); });
     this._hammer.on('swiperight', () => { if (this._onPrev) this._onPrev(); });
 
-    this._hammer.get('pinch').set({ enable: true });
+    this._hammer.get('pinch').set({ enable: this._options.enableZoom !== false });
     let lastPinchScale = 1;
     this._hammer.on('pinchstart', () => { lastPinchScale = 1; });
     this._hammer.on('pinchmove', (e) => {

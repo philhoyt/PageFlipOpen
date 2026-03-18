@@ -47512,7 +47512,7 @@ var Interaction = class {
     this._hammer.on("swiperight", () => {
       if (this._onPrev) this._onPrev();
     });
-    this._hammer.get("pinch").set({ enable: true });
+    this._hammer.get("pinch").set({ enable: this._options.enableZoom !== false });
     let lastPinchScale = 1;
     this._hammer.on("pinchstart", () => {
       lastPinchScale = 1;
@@ -48237,17 +48237,18 @@ var Viewport = class {
     parent.insertBefore(wrapper, this._canvas);
     wrapper.appendChild(this._canvas);
     this._wrapper = wrapper;
+    const zoomEnabled = this._options.enableZoom !== false;
     this._panzoom = Panzoom(this._canvas, {
-      maxScale: this._options.zoomMax || 3,
+      maxScale: zoomEnabled ? this._options.zoomMax || 3 : 1,
       minScale: this._options.zoomMin || 1,
       step: 0.25,
       contain: "outside",
       cursor: "default",
       touchAction: "none",
-      // Disable pan at scale 1
       startScale: this._options.zoom || 1
     });
     this._boundWheelHandler = (e) => {
+      if (!zoomEnabled) return;
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         this._panzoom.zoomWithWheel(e);
@@ -48400,15 +48401,16 @@ var Toolbar = class {
         <button class="pfo-btn pfo-btn-next" title="Next page" aria-label="Next page">${ICONS.next}</button>
         <button class="pfo-btn pfo-btn-last" title="Last page" aria-label="Last page">${ICONS.last}</button>
       </div>
+      ${this._options.enableZoom !== false ? `
       <div class="pfo-toolbar-divider"></div>
       <div class="pfo-toolbar-group">
         <button class="pfo-btn pfo-btn-zoom-out" title="Zoom out" aria-label="Zoom out">${ICONS.zoomOut}</button>
         <span class="pfo-zoom-level">100%</span>
         <button class="pfo-btn pfo-btn-zoom-in" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
-      </div>
-      <div class="pfo-toolbar-divider"></div>
+      </div>` : ""}
+      ${this._options.enableFullscreen !== false || this._options.enableDownload ? '<div class="pfo-toolbar-divider"></div>' : ""}
       <div class="pfo-toolbar-group">
-        <button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>
+        ${this._options.enableFullscreen !== false ? `<button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>` : ""}
         ${this._options.enableDownload ? `<button class="pfo-btn pfo-btn-download" title="Download PDF" aria-label="Download PDF">${ICONS.download}</button>` : ""}
       </div>
     `;
@@ -48429,9 +48431,11 @@ var Toolbar = class {
     this._btnPrev.addEventListener("click", () => this._emit("prev"));
     this._btnNext.addEventListener("click", () => this._emit("next"));
     this._btnLast.addEventListener("click", () => this._emit("last"));
-    this._btnZoomIn.addEventListener("click", () => this._emit("zoomIn"));
-    this._btnZoomOut.addEventListener("click", () => this._emit("zoomOut"));
-    this._btnFullscreen.addEventListener("click", () => this._emit("toggleFullscreen"));
+    if (this._btnZoomIn) this._btnZoomIn.addEventListener("click", () => this._emit("zoomIn"));
+    if (this._btnZoomOut) this._btnZoomOut.addEventListener("click", () => this._emit("zoomOut"));
+    if (this._btnFullscreen) {
+      this._btnFullscreen.addEventListener("click", () => this._emit("toggleFullscreen"));
+    }
     if (this._btnDownload) {
       this._btnDownload.addEventListener("click", () => this._emit("download"));
     }
@@ -48524,8 +48528,7 @@ var DEFAULTS = {
   backgroundColor: "transparent",
   pageBackground: "#fff",
   flipDuration: 800,
-  enableSound: false,
-  soundUrl: null,
+  enableZoom: true,
   enableFullscreen: true,
   enableDownload: false,
   downloadFilename: null,
@@ -48813,4 +48816,3 @@ gsap/CSSPlugin.js:
    * @author: Jack Doyle, jack@greensock.com
   *)
 */
-//# sourceMappingURL=pageflipopen.js.map

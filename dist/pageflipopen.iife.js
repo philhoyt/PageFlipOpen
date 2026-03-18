@@ -47097,10 +47097,10 @@ void main() {
         this._bookGroup.add(this._rightMesh);
         const leftTex = this._makeGradientTex([
           [0, "rgba(0,0,0,0)"],
-          [0.4, "rgba(0,0,0,0)"],
-          [0.75, "rgba(0,0,0,0.05)"],
-          [0.9, "rgba(0,0,0,0.10)"],
-          [1, "rgba(0,0,0,0.15)"]
+          [0.8, "rgba(0,0,0,0)"],
+          [0.85, "rgba(0,0,0,0.02)"],
+          [0.9, "rgba(0,0,0,0.05)"],
+          [1, "rgba(0,0,0,0.08)"]
         ]);
         this._leftOverlay = new Mesh(
           new PlaneGeometry(pageW, pageH),
@@ -47109,10 +47109,10 @@ void main() {
         this._leftOverlay.position.set(-halfW, 0, 0.2);
         this._bookGroup.add(this._leftOverlay);
         const rightTex = this._makeGradientTex([
-          [0, "rgba(0,0,0,0.15)"],
-          [0.1, "rgba(0,0,0,0.10)"],
-          [0.25, "rgba(0,0,0,0.05)"],
-          [0.6, "rgba(0,0,0,0)"],
+          [0, "rgba(0,0,0,0.06)"],
+          [0.1, "rgba(0,0,0,0.05)"],
+          [0.15, "rgba(0,0,0,0.02)"],
+          [0.2, "rgba(0,0,0,0)"],
           [1, "rgba(0,0,0,0)"]
         ]);
         this._rightOverlay = new Mesh(
@@ -47122,8 +47122,10 @@ void main() {
         this._rightOverlay.position.set(halfW, 0, 0.2);
         this._bookGroup.add(this._rightOverlay);
         const spineTex = this._makeGradientTex([
-          [0, "rgba(255,0,0,1)"],
-          [1, "rgba(0,255,0,1)"]
+          [0, "rgba(0,0,0,0.00)"],
+          [0.5, "rgba(0,0,0,0.08)"],
+          [0.51, "rgba(0,0,0,0.0)"],
+          [1, "rgba(0,0,0,0)"]
         ]);
         this._spineMesh = new Mesh(
           new PlaneGeometry(pageW * 0.04, pageH),
@@ -47525,7 +47527,7 @@ void main() {
       this._hammer.on("swiperight", () => {
         if (this._onPrev) this._onPrev();
       });
-      this._hammer.get("pinch").set({ enable: true });
+      this._hammer.get("pinch").set({ enable: this._options.enableZoom !== false });
       let lastPinchScale = 1;
       this._hammer.on("pinchstart", () => {
         lastPinchScale = 1;
@@ -48250,17 +48252,18 @@ void main() {
       parent.insertBefore(wrapper, this._canvas);
       wrapper.appendChild(this._canvas);
       this._wrapper = wrapper;
+      const zoomEnabled = this._options.enableZoom !== false;
       this._panzoom = Panzoom(this._canvas, {
-        maxScale: this._options.zoomMax || 3,
+        maxScale: zoomEnabled ? this._options.zoomMax || 3 : 1,
         minScale: this._options.zoomMin || 1,
         step: 0.25,
         contain: "outside",
         cursor: "default",
         touchAction: "none",
-        // Disable pan at scale 1
         startScale: this._options.zoom || 1
       });
       this._boundWheelHandler = (e) => {
+        if (!zoomEnabled) return;
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           this._panzoom.zoomWithWheel(e);
@@ -48413,15 +48416,16 @@ void main() {
         <button class="pfo-btn pfo-btn-next" title="Next page" aria-label="Next page">${ICONS.next}</button>
         <button class="pfo-btn pfo-btn-last" title="Last page" aria-label="Last page">${ICONS.last}</button>
       </div>
+      ${this._options.enableZoom !== false ? `
       <div class="pfo-toolbar-divider"></div>
       <div class="pfo-toolbar-group">
         <button class="pfo-btn pfo-btn-zoom-out" title="Zoom out" aria-label="Zoom out">${ICONS.zoomOut}</button>
         <span class="pfo-zoom-level">100%</span>
         <button class="pfo-btn pfo-btn-zoom-in" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
-      </div>
-      <div class="pfo-toolbar-divider"></div>
+      </div>` : ""}
+      ${this._options.enableFullscreen !== false || this._options.enableDownload ? '<div class="pfo-toolbar-divider"></div>' : ""}
       <div class="pfo-toolbar-group">
-        <button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>
+        ${this._options.enableFullscreen !== false ? `<button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>` : ""}
         ${this._options.enableDownload ? `<button class="pfo-btn pfo-btn-download" title="Download PDF" aria-label="Download PDF">${ICONS.download}</button>` : ""}
       </div>
     `;
@@ -48442,9 +48446,11 @@ void main() {
       this._btnPrev.addEventListener("click", () => this._emit("prev"));
       this._btnNext.addEventListener("click", () => this._emit("next"));
       this._btnLast.addEventListener("click", () => this._emit("last"));
-      this._btnZoomIn.addEventListener("click", () => this._emit("zoomIn"));
-      this._btnZoomOut.addEventListener("click", () => this._emit("zoomOut"));
-      this._btnFullscreen.addEventListener("click", () => this._emit("toggleFullscreen"));
+      if (this._btnZoomIn) this._btnZoomIn.addEventListener("click", () => this._emit("zoomIn"));
+      if (this._btnZoomOut) this._btnZoomOut.addEventListener("click", () => this._emit("zoomOut"));
+      if (this._btnFullscreen) {
+        this._btnFullscreen.addEventListener("click", () => this._emit("toggleFullscreen"));
+      }
       if (this._btnDownload) {
         this._btnDownload.addEventListener("click", () => this._emit("download"));
       }
@@ -48537,8 +48543,7 @@ void main() {
     backgroundColor: "transparent",
     pageBackground: "#fff",
     flipDuration: 800,
-    enableSound: false,
-    soundUrl: null,
+    enableZoom: true,
     enableFullscreen: true,
     enableDownload: false,
     downloadFilename: null,

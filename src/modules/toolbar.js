@@ -65,15 +65,16 @@ export class Toolbar {
         <button class="pfo-btn pfo-btn-next" title="Next page" aria-label="Next page">${ICONS.next}</button>
         <button class="pfo-btn pfo-btn-last" title="Last page" aria-label="Last page">${ICONS.last}</button>
       </div>
+      ${this._options.enableZoom !== false ? `
       <div class="pfo-toolbar-divider"></div>
       <div class="pfo-toolbar-group">
         <button class="pfo-btn pfo-btn-zoom-out" title="Zoom out" aria-label="Zoom out">${ICONS.zoomOut}</button>
         <span class="pfo-zoom-level">100%</span>
         <button class="pfo-btn pfo-btn-zoom-in" title="Zoom in" aria-label="Zoom in">${ICONS.zoomIn}</button>
-      </div>
-      <div class="pfo-toolbar-divider"></div>
+      </div>` : ''}
+      ${(this._options.enableFullscreen !== false || this._options.enableDownload) ? '<div class="pfo-toolbar-divider"></div>' : ''}
       <div class="pfo-toolbar-group">
-        <button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>
+        ${this._options.enableFullscreen !== false ? `<button class="pfo-btn pfo-btn-fullscreen" title="Toggle fullscreen" aria-label="Toggle fullscreen">${ICONS.fullscreen}</button>` : ''}
         ${this._options.enableDownload ? `<button class="pfo-btn pfo-btn-download" title="Download PDF" aria-label="Download PDF">${ICONS.download}</button>` : ''}
       </div>
     `;
@@ -99,9 +100,11 @@ export class Toolbar {
     this._btnPrev.addEventListener('click', () => this._emit('prev'));
     this._btnNext.addEventListener('click', () => this._emit('next'));
     this._btnLast.addEventListener('click', () => this._emit('last'));
-    this._btnZoomIn.addEventListener('click', () => this._emit('zoomIn'));
-    this._btnZoomOut.addEventListener('click', () => this._emit('zoomOut'));
-    this._btnFullscreen.addEventListener('click', () => this._emit('toggleFullscreen'));
+    if (this._btnZoomIn)  this._btnZoomIn.addEventListener('click', () => this._emit('zoomIn'));
+    if (this._btnZoomOut) this._btnZoomOut.addEventListener('click', () => this._emit('zoomOut'));
+    if (this._btnFullscreen) {
+      this._btnFullscreen.addEventListener('click', () => this._emit('toggleFullscreen'));
+    }
     if (this._btnDownload) {
       this._btnDownload.addEventListener('click', () => this._emit('download'));
     }
