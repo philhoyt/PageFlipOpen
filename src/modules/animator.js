@@ -519,7 +519,66 @@ export class Animator {
     this._executeFlip(this._flipQueue.shift());
   }
 
+  _executeSingleSlide({ targetLeftPage, direction, duration }) {
+    const isForward = direction === 'forward';
+    const pageW     = this._pageDims.pageWidth;
+    const halfW     = pageW / 2;
+    const dur       = duration / 1000;
+
+    // Slide far enough to fully clear the container
+    const slideDistance = Math.max(1, this._container.clientWidth);
+    const outX     = isForward ? -slideDistance :  slideDistance;
+    const inStartX = isForward ?  slideDistance : -slideDistance;
+
+    // Repurpose _flipRightMesh as the incoming flat panel.
+    // Its geometry is translated +halfW, so position.x = visualCentreX - halfW.
+    const inMesh = this._flipRightMesh;
+
+    // Reset vertex colours to white (deformation shading may have left them tinted)
+    const colors = inMesh.geometry.attributes.color;
+    colors.array.fill(1);
+    colors.needsUpdate = true;
+
+    inMesh.position.set(inStartX - halfW, 0, 0);
+    inMesh.visible = true;
+    this._applyTexture(inMesh, targetLeftPage);
+
+    this._currentTimeline = gsap.timeline({
+      onComplete: () => {
+        this._currentLeftPage = targetLeftPage;
+
+        // Transfer texture to leftMesh and reset everything
+        this._leftMesh.material.map = inMesh.material.map;
+        this._leftMesh.material.color.set(0xffffff);
+        this._leftMesh.material.needsUpdate = true;
+        this._leftMesh.position.x = 0;
+
+        inMesh.visible = false;
+        inMesh.material.map = null;
+        inMesh.position.set(0, 0, 2);
+
+        if (this._onPageChangeCb) this._onPageChangeCb(targetLeftPage);
+        if (this._loader) this._loader.prefetch(targetLeftPage, this._totalPages);
+        this._processQueue();
+      },
+    });
+
+    // Both slides run in parallel
+    this._currentTimeline.to(this._leftMesh.position, {
+      x: outX, duration: dur, ease: 'power2.inOut',
+    }, 0);
+
+    this._currentTimeline.to(inMesh.position, {
+      x: -halfW, duration: dur, ease: 'power2.inOut',
+    }, 0);
+  }
+
   _executeFlip({ targetLeftPage, direction, duration }) {
+    if (this._layout === 'single') {
+      this._executeSingleSlide({ targetLeftPage, direction, duration });
+      return;
+    }
+
     const isDouble  = this._layout === 'double';
     const isForward = direction === 'forward';
     const pageW     = this._pageDims.pageWidth;
@@ -682,8 +741,9 @@ export class Animator {
       this._currentTimeline.kill();
       this._currentTimeline = null;
     }
-    if (this._flipRightMesh) this._flipRightMesh.visible = false;
-    if (this._flipLeftMesh)  this._flipLeftMesh.visible  = false;
+    if (this._flipRightMesh) { this._flipRightMesh.visible = false; this._flipRightMesh.position.set(0, 0, 2); }
+    if (this._flipLeftMesh)  { this._flipLeftMesh.visible  = false; this._flipLeftMesh.position.set(0, 0, 2); }
+    if (this._leftMesh)      this._leftMesh.position.x = 0;
     if (this._shadowMesh)    this._shadowMesh.material.opacity = 0;
     this._isAnimating = false;
     if (this._onAnimationEndCb) this._onAnimationEndCb();
