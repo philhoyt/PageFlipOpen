@@ -241,10 +241,10 @@ export class Animator {
       // Gradient reversed to match UV direction: dark at u=0, transparent at u=1.
       const leftTex = this._makeGradientTex([
         [0,    'rgba(0,0,0,0)'],
-        [0.40, 'rgba(0,0,0,0)'],
-        [0.75, 'rgba(0,0,0,0.05)'],
-        [0.90, 'rgba(0,0,0,0.10)'],
-        [1.0,  'rgba(0,0,0,0.15)'],
+        [0.80, 'rgba(0,0,0,0)'],
+        [0.85, 'rgba(0,0,0,0.02)'],
+        [0.90, 'rgba(0,0,0,0.05)'],
+        [1.0,  'rgba(0,0,0,0.08)'],
       ]);
       this._leftOverlay = new Mesh(
         new PlaneGeometry(pageW, pageH),
@@ -255,10 +255,10 @@ export class Animator {
 
       // Right page (u=0 = spine, u=1 = outer right edge) — nearly flat
       const rightTex = this._makeGradientTex([
-        [0,    'rgba(0,0,0,0.15)'],
-        [0.10, 'rgba(0,0,0,0.10)'],
-        [0.25, 'rgba(0,0,0,0.05)'],
-        [0.60, 'rgba(0,0,0,0)'],
+        [0,    'rgba(0,0,0,0.06)'],
+        [0.10, 'rgba(0,0,0,0.05)'],
+        [0.15, 'rgba(0,0,0,0.02)'],
+        [0.20, 'rgba(0,0,0,0)'],
         [1.0,  'rgba(0,0,0,0)'],
       ]);
       this._rightOverlay = new Mesh(

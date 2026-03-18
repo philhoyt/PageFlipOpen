@@ -47082,10 +47082,10 @@ var Animator = class {
       this._bookGroup.add(this._rightMesh);
       const leftTex = this._makeGradientTex([
         [0, "rgba(0,0,0,0)"],
-        [0.4, "rgba(0,0,0,0)"],
-        [0.75, "rgba(0,0,0,0.05)"],
-        [0.9, "rgba(0,0,0,0.10)"],
-        [1, "rgba(0,0,0,0.15)"]
+        [0.8, "rgba(0,0,0,0)"],
+        [0.85, "rgba(0,0,0,0.02)"],
+        [0.9, "rgba(0,0,0,0.05)"],
+        [1, "rgba(0,0,0,0.08)"]
       ]);
       this._leftOverlay = new Mesh(
         new PlaneGeometry(pageW, pageH),
@@ -47094,10 +47094,10 @@ var Animator = class {
       this._leftOverlay.position.set(-halfW, 0, 0.2);
       this._bookGroup.add(this._leftOverlay);
       const rightTex = this._makeGradientTex([
-        [0, "rgba(0,0,0,0.15)"],
-        [0.1, "rgba(0,0,0,0.10)"],
-        [0.25, "rgba(0,0,0,0.05)"],
-        [0.6, "rgba(0,0,0,0)"],
+        [0, "rgba(0,0,0,0.06)"],
+        [0.1, "rgba(0,0,0,0.05)"],
+        [0.15, "rgba(0,0,0,0.02)"],
+        [0.2, "rgba(0,0,0,0)"],
         [1, "rgba(0,0,0,0)"]
       ]);
       this._rightOverlay = new Mesh(
@@ -48813,3 +48813,4 @@ gsap/CSSPlugin.js:
    * @author: Jack Doyle, jack@greensock.com
   *)
 */
+//# sourceMappingURL=pageflipopen.js.map

@@ -47122,10 +47122,8 @@ void main() {
         this._rightOverlay.position.set(halfW, 0, 0.2);
         this._bookGroup.add(this._rightOverlay);
         const spineTex = this._makeGradientTex([
-          [0, "rgba(0,0,0,0.00)"],
-          [0.5, "rgba(0,0,0,0.08)"],
-          [0.51, "rgba(0,0,0,0.0)"],
-          [1, "rgba(0,0,0,0)"]
+          [0, "rgba(255,0,0,1)"],
+          [1, "rgba(0,255,0,1)"]
         ]);
         this._spineMesh = new Mesh(
           new PlaneGeometry(pageW * 0.04, pageH),
