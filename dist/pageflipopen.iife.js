@@ -42563,6 +42563,9 @@ void main() {
     getCurrentLayout() {
       return this._currentLayout;
     }
+    getPdfDimensions() {
+      return this._pageDimensions;
+    }
     /**
      * Returns { pageWidth, pageHeight, spreadWidth, spreadHeight, scale }
      * representing the final display dimensions for one page fitted into container.
@@ -48601,6 +48604,7 @@ void main() {
     downloadFilename: null,
     enableKeyboard: true,
     enableTouch: true,
+    autoHeight: true,
     toolbar: true,
     toolbarAlwaysVisible: false,
     onReady: null,
@@ -48642,6 +48646,7 @@ void main() {
       this._layout = new Layout(this._container);
       this._layout.onLayoutChange((newLayout) => {
         this.layout = newLayout;
+        this._updateContainerHeight();
         if (this._animator && this._ready) {
           const dims = this._layout.getPageDimensions();
           const dpr = window.devicePixelRatio || 1;
@@ -48651,6 +48656,7 @@ void main() {
         }
       });
       this._layout.onResize(() => {
+        this._updateContainerHeight();
         if (this._animator && this._ready) {
           const dims = this._layout.getPageDimensions();
           const dpr = window.devicePixelRatio || 1;
@@ -48694,6 +48700,7 @@ void main() {
         const clamped = Math.max(1, Math.min(this._options.startPage, totalPages));
         const leftPage = this._layout.getSpreadLeftPage(clamped);
         this.currentPage = leftPage;
+        this._updateContainerHeight();
         const dims = this._layout.getPageDimensions();
         const dpr = window.devicePixelRatio || 1;
         this._loader.setRenderScale(dims.scale * dpr * 1.5);
@@ -48705,6 +48712,11 @@ void main() {
         });
         this._viewport.onFullscreenChange((isFullscreen) => {
           if (this._toolbar) this._toolbar.setFullscreen(isFullscreen);
+          if (isFullscreen) {
+            this._container.style.height = "";
+          } else {
+            this._updateContainerHeight();
+          }
           const dims2 = this._layout.getPageDimensions();
           const lp = this._layout.getSpreadLeftPage(this.currentPage);
           this._animator.buildScene(dims2, this.layout, lp, this.totalPages);
@@ -48747,6 +48759,18 @@ void main() {
       } catch (err) {
         this._handleError(err);
       }
+    }
+    _updateContainerHeight() {
+      if (!this._options.autoHeight || !this._layout) return;
+      const { width: pdfW, height: pdfH } = this._layout.getPdfDimensions();
+      if (!pdfW || !pdfH) return;
+      const spreadCols = this.layout === "double" ? 2 : 1;
+      const containerW = this._container.clientWidth;
+      const height = Math.min(
+        Math.round(containerW * pdfH / (pdfW * spreadCols) + TOOLBAR_HEIGHT),
+        window.innerHeight
+      );
+      this._container.style.height = `${height}px`;
     }
     _handleError(err) {
       console.error("PageFlipOpen error:", err);
@@ -48839,6 +48863,7 @@ void main() {
         this._loader = null;
       }
       this._container.classList.remove("pfo-flipbook");
+      this._container.style.height = "";
     }
   };
   PageFlipOpen.setPdfWorkerSrc = setPdfWorkerSrc;

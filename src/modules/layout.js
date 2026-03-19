@@ -73,6 +73,10 @@ export class Layout {
     return this._currentLayout;
   }
 
+  getPdfDimensions() {
+    return this._pageDimensions;
+  }
+
   /**
    * Returns { pageWidth, pageHeight, spreadWidth, spreadHeight, scale }
    * representing the final display dimensions for one page fitted into container.

@@ -10,6 +10,7 @@ import { Animator } from './modules/animator.js';
 import { Interaction } from './modules/interaction.js';
 import { Viewport } from './modules/viewport.js';
 import { Toolbar } from './modules/toolbar.js';
+import { TOOLBAR_HEIGHT } from './modules/constants.js';
 
 const DEFAULTS = {
   source: null,
@@ -28,6 +29,7 @@ const DEFAULTS = {
   downloadFilename: null,
   enableKeyboard: true,
   enableTouch: true,
+  autoHeight: true,
   toolbar: true,
   toolbarAlwaysVisible: false,
   onReady: null,
@@ -82,6 +84,7 @@ export class PageFlipOpen {
     this._layout = new Layout(this._container);
     this._layout.onLayoutChange((newLayout) => {
       this.layout = newLayout;
+      this._updateContainerHeight();
       if (this._animator && this._ready) {
         const dims = this._layout.getPageDimensions();
         const dpr = window.devicePixelRatio || 1;
@@ -92,6 +95,7 @@ export class PageFlipOpen {
     });
 
     this._layout.onResize(() => {
+      this._updateContainerHeight();
       if (this._animator && this._ready) {
         const dims = this._layout.getPageDimensions();
         const dpr = window.devicePixelRatio || 1;
@@ -146,6 +150,10 @@ export class PageFlipOpen {
       const leftPage = this._layout.getSpreadLeftPage(clamped);
       this.currentPage = leftPage;
 
+      // Set container height before calculating page dimensions so getPageDimensions()
+      // uses the correct height when autoHeight is enabled.
+      this._updateContainerHeight();
+
       // Build the Three.js scene
       const dims = this._layout.getPageDimensions();
 
@@ -164,6 +172,11 @@ export class PageFlipOpen {
       });
       this._viewport.onFullscreenChange((isFullscreen) => {
         if (this._toolbar) this._toolbar.setFullscreen(isFullscreen);
+        if (isFullscreen) {
+          this._container.style.height = '';
+        } else {
+          this._updateContainerHeight();
+        }
         // Re-trigger layout on fullscreen change
         const dims = this._layout.getPageDimensions();
         const lp = this._layout.getSpreadLeftPage(this.currentPage);
@@ -215,6 +228,19 @@ export class PageFlipOpen {
     } catch (err) {
       this._handleError(err);
     }
+  }
+
+  _updateContainerHeight() {
+    if (!this._options.autoHeight || !this._layout) return;
+    const { width: pdfW, height: pdfH } = this._layout.getPdfDimensions();
+    if (!pdfW || !pdfH) return;
+    const spreadCols = this.layout === 'double' ? 2 : 1;
+    const containerW = this._container.clientWidth;
+    const height = Math.min(
+      Math.round(containerW * pdfH / (pdfW * spreadCols) + TOOLBAR_HEIGHT),
+      window.innerHeight
+    );
+    this._container.style.height = `${height}px`;
   }
 
   _handleError(err) {
@@ -308,6 +334,7 @@ export class PageFlipOpen {
     if (this._loader) { this._loader.destroy(); this._loader = null; }
 
     this._container.classList.remove('pfo-flipbook');
+    this._container.style.height = '';
   }
 }
 
