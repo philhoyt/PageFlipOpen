@@ -27,7 +27,7 @@ Or download the latest release and copy the `dist/` folder into your project.
 <link rel="stylesheet" href="dist/pageflipopen.css" />
 <script src="dist/pageflipopen.min.js"></script>
 
-<div id="flipbook" style="width: 100%; height: 600px;"></div>
+<div id="flipbook" style="width: 100%;"></div>
 
 <script>
   PageFlipOpen.setPdfWorkerSrc('/dist/pdf.worker.mjs');
@@ -37,6 +37,8 @@ Or download the latest release and copy the `dist/` folder into your project.
   });
 </script>
 ```
+
+By default the component sets its own height based on the book's aspect ratio (`autoHeight: true`), so no explicit height is needed on the container. Set `autoHeight: false` if you want to control the height yourself.
 
 ## Options
 
@@ -56,8 +58,9 @@ Or download the latest release and copy the `dist/` folder into your project.
 | `enableFullscreen` | `boolean` | `true` | Show fullscreen button and enable fullscreen mode. |
 | `enableDownload` | `boolean` | `false` | Show download button. |
 | `downloadFilename` | `string` | `null` | Filename for downloaded PDF. Defaults to the filename from the source URL. |
+| `autoHeight` | `boolean` | `true` | Automatically set container height based on the book's aspect ratio, capped at 100vh. Set to `false` to control height manually. |
 | `enableKeyboard` | `boolean` | `true` | Enable arrow key navigation. |
-| `enableTouch` | `boolean` | `true` | Enable touch gestures (swipe and pinch). |
+| `enableTouch` | `boolean` | `true` | Enable touch gestures (swipe, pinch). Vertical page scroll is always preserved. |
 | `toolbar` | `boolean` | `true` | Show the toolbar. |
 | `toolbarAlwaysVisible` | `boolean` | `false` | Keep toolbar visible instead of auto-hiding. |
 | `onReady` | `function` | `null` | Called when the PDF is loaded and ready. |
