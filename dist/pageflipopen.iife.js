@@ -47567,7 +47567,7 @@ void main() {
       }
     }
     _initHammer() {
-      this._hammer = new import_hammerjs.default(this._canvas, { touchAction: "none" });
+      this._hammer = new import_hammerjs.default(this._canvas, { touchAction: "pan-y" });
       this._hammer.get("swipe").set({
         direction: import_hammerjs.default.DIRECTION_HORIZONTAL,
         threshold: 20,
@@ -48311,7 +48311,7 @@ void main() {
         step: 0.25,
         contain: "outside",
         cursor: "default",
-        touchAction: "none",
+        touchAction: "pan-y",
         startScale: this._options.zoom || 1
       });
       this._boundWheelHandler = (e) => {

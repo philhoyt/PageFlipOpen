@@ -46,7 +46,7 @@ export class Interaction {
   }
 
   _initHammer() {
-    this._hammer = new Hammer(this._canvas, { touchAction: 'none' });
+    this._hammer = new Hammer(this._canvas, { touchAction: 'pan-y' });
 
     this._hammer.get('swipe').set({
       direction: Hammer.DIRECTION_HORIZONTAL,

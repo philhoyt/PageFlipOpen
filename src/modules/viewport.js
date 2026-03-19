@@ -41,7 +41,7 @@ export class Viewport {
       step: 0.25,
       contain: 'outside',
       cursor: 'default',
-      touchAction: 'none',
+      touchAction: 'pan-y',
       startScale: this._options.zoom || 1,
     });
 
